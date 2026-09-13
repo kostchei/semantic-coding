@@ -253,11 +253,59 @@ def rerank_with_llm(
         return candidates
 
 
+def resolve_project_dirs(
+    project: Optional[str] = None,
+    project_path: Optional[str] = None,
+    text_dir: Optional[str] = None,
+    code_dir: Optional[str] = None
+) -> Tuple[str, str, str]:
+    """
+    Resolves (text_dir, code_dir, project_name) given project name, path, or explicit dirs.
+    Auto-detects from CWD if possible, falling back to default repo-text/repo-code.
+    """
+    script_dir = Path(__file__).resolve().parent
+    registry_file = script_dir / "workspaces" / "registry.json"
+    registry = {}
+    if registry_file.is_file():
+        try:
+            with open(registry_file, "r", encoding="utf-8-sig") as f:
+                registry = json.load(f)
+        except Exception:
+            pass
+
+    # 1. Direct project name match
+    if project and project in registry:
+        return registry[project]["text_dir"], registry[project]["code_dir"], project
+
+    # 2. Match by source_path (or project_path)
+    target_path = project_path or project
+    if target_path:
+        norm_target = os.path.abspath(target_path).lower()
+        for pname, pinfo in registry.items():
+            sp = os.path.abspath(pinfo.get("source_path", "")).lower()
+            if sp and (sp == norm_target or norm_target.startswith(sp)):
+                return pinfo["text_dir"], pinfo["code_dir"], pname
+
+    # 3. Auto-detect from caller's current working directory
+    cwd = os.path.abspath(os.getcwd()).lower()
+    for pname, pinfo in registry.items():
+        sp = os.path.abspath(pinfo.get("source_path", "")).lower()
+        if sp and (cwd == sp or cwd.startswith(sp + os.sep)):
+            return pinfo["text_dir"], pinfo["code_dir"], pname
+
+    # 4. Fallback to passed text_dir/code_dir or defaults
+    resolved_text = text_dir if text_dir is not None else str(script_dir / "repo-text")
+    resolved_code = code_dir if code_dir is not None else str(script_dir / "repo-code")
+    return resolved_text, resolved_code, "default"
+
+
 def main():
     parser = argparse.ArgumentParser(description="grepai Multi-Model Hybrid Search & Re-Ranking")
     parser.add_argument("query", type=str, help="Search query")
-    parser.add_argument("--text-dir", type=str, default="repo-text", help="Directory indexed with 137M text model")
-    parser.add_argument("--code-dir", type=str, default="repo-code", help="Directory indexed with 7B code model")
+    parser.add_argument("--project", "-p", type=str, help="Registered project name (e.g. praetor_silica)")
+    parser.add_argument("--project-path", type=str, help="Path to project directory")
+    parser.add_argument("--text-dir", type=str, default=None, help="Directory indexed with 137M text model")
+    parser.add_argument("--code-dir", type=str, default=None, help="Directory indexed with 7B code model")
     parser.add_argument("--limit", "-n", type=int, default=5, help="Number of results to return (default: 5)")
     parser.add_argument("--json", "-j", action="store_true", help="Output results in JSON format")
     parser.add_argument("--k", type=int, help="RRF smoothing constant (auto-loads from optimal_params.json if omitted)")
@@ -294,10 +342,18 @@ def main():
     if w_text is None: w_text = 1.0
     if w_code is None: w_code = 1.1
 
+    # Resolve workspace directories
+    text_dir, code_dir, resolved_proj = resolve_project_dirs(
+        project=args.project,
+        project_path=args.project_path,
+        text_dir=args.text_dir,
+        code_dir=args.code_dir
+    )
+
     # Stage 1: Dual Dense Parallel Retrieval
     with ThreadPoolExecutor(max_workers=2) as executor:
-        f_text = executor.submit(run_single_search, bin_path, args.text_dir, args.query, 15)
-        f_code = executor.submit(run_single_search, bin_path, args.code_dir, args.query, 15)
+        f_text = executor.submit(run_single_search, bin_path, text_dir, args.query, 15)
+        f_code = executor.submit(run_single_search, bin_path, code_dir, args.query, 15)
         text_res = f_text.result()
         code_res = f_code.result()
 
@@ -333,7 +389,8 @@ def main():
         print(json.dumps(fused, indent=2))
         return
 
-    mode_label = "Hybrid RRF + Local Re-Rank" if args.rerank else f"Hybrid RRF (k={k_val}, wt={w_text:.1f}, wc={w_code:.1f})"
+    proj_tag = f" [Project: {resolved_proj}]" if resolved_proj != "default" else ""
+    mode_label = ("Hybrid RRF + Local Re-Rank" if args.rerank else f"Hybrid RRF (k={k_val}, wt={w_text:.1f}, wc={w_code:.1f})") + proj_tag
     print(f"\n{mode_label} Results for: \"{args.query}\"\n" + "=" * 75)
     for idx, item in enumerate(fused, 1):
         fp = item["file_path"]

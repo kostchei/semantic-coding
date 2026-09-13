@@ -242,3 +242,46 @@ The Two-Stage Hybrid Engine is exposed via standard Model Context Protocol (Fast
 - All authentication with local embedding daemons (LM Studio) uses Windows Credential Manager (`PraetorSilica/LMStudioDev`) or local environment variables resolved dynamically in memory at runtime.
 - No bearer tokens, passwords, or private keys are written to configuration files or git-tracked trees.
 
+---
+
+## 8. Multi-Project Hybrid Indexing & Real-World Validation
+
+To support arbitrary production codebases without tree pollution or file conflicts, `grepai-hybrid` features a centralized multi-project workspace architecture:
+
+### Architecture
+- **Pristine Source Repositories:** Target repositories (e.g. `E:\praetor_silica`, `E:\proj\LDGM`) remain 100% clean and untouched.
+- **Central Registry:** Managed in `workspaces/registry.json` mapping project identifiers to dual-index paths and source paths.
+- **Git-Ignored Workspaces:** All project embeddings and local configuration files reside under `workspaces/<project_name>/` (strictly excluded via `.gitignore`).
+- **Dynamic CWD Resolution:** When Claude Code, Codex, or Antigravity executes in any indexed repository, the MCP server automatically detects the current directory and routes searches to that project's dual indices.
+
+### Empirical Validation on Real Projects
+
+#### Project 1: `praetor_silica` (Python / TypeScript / AI Agent Infrastructure)
+- **Files Indexed:** 457 source files (6,311 code chunks)
+- **Text Index (137M):** 36.5 MB (`workspaces/praetor_silica/repo-text`)
+- **Code Index (7B):** 138.5 MB (`workspaces/praetor_silica/repo-code`)
+- **Query Verification:**
+  - *"verify LM Studio setup and authentication"* -> Rank #1: `src/praetor_silica/runtime/lmstudio_dev.py` (RRF: 0.3333, Text #1, Code #1).
+  - *"platform lock file verification and path traversal prevention"* -> Rank #1: `tools/resolve_platform.py` (RRF: 0.2708).
+
+#### Project 2: `LDGM` (C++ / CMake / Game Simulation Engine)
+- **Files Indexed:** 191 source files
+- **Text Index (137M):** 2.0 MB (`workspaces/LDGM/repo-text`)
+- **Code Index (7B):** 7.7 MB (`workspaces/LDGM/repo-code`)
+- **Query Verification:**
+  - *"CMake presets and target dependencies"* -> Rank #1: `Gems/LDMChronoVehicle/Code/CMakeLists.txt`, Rank #2: `CMakePresets.json` (Code #1).
+  - *"vehicle physics simulation component or chrono vehicle gem"* -> Rank #1: `Gems/LDMChronoVehicle/gem.json` (RRF: 0.2500).
+
+### Command Reference for New Projects
+```powershell
+# Index any arbitrary project into the hybrid engine
+.\index_project.ps1 -ProjectPath "C:\Path\To\Project" -ProjectName "my_project"
+
+# Search a specific project
+python hybrid_search.py "my query" --project my_project -n 5
+
+# Synchronize modifications from a project
+.\sync_hybrid_indices.ps1 -Project my_project -Once
+```
+
+

@@ -33,6 +33,7 @@ DEFAULT_CODE_DIR = str(script_dir / "repo-code")
 @mcp.tool()
 def search_codebase(
     query: str,
+    project: Optional[str] = None,
     limit: int = 5,
     rerank: bool = False,
     feedback_file: Optional[str] = None
@@ -43,7 +44,8 @@ def search_codebase(
     for algorithmic code logic via Reciprocal Rank Fusion (RRF).
 
     Args:
-        query: The search query (e.g. 'exponential backoff retry with jitter' or 'throttle client queries').
+        query: The search query (e.g. 'platform lock file verification' or 'throttle client queries').
+        project: Optional registered project name (e.g. 'praetor_silica') or path. Auto-resolves from caller CWD if omitted.
         limit: Max number of top code snippets to return (default: 5).
         rerank: Set to True to enable Stage 2 local LLM cross-encoder re-ranking for strict false-positive filtering.
         feedback_file: Optional file path that was confirmed relevant, to log training triplets for fine-tuning.
@@ -51,6 +53,7 @@ def search_codebase(
     Returns:
         Formatted markdown containing top matching code chunks, line numbers, scores, and relevance reasoning.
     """
+    text_dir, code_dir, resolved_proj = hybrid_search.resolve_project_dirs(project=project)
     bin_path = hybrid_search.find_binary()
     token = hybrid_search.get_stored_credential("PraetorSilica/LMStudioDev")
 
@@ -71,8 +74,8 @@ def search_codebase(
 
     # Stage 1: Parallel Dense Retrieval
     with hybrid_search.ThreadPoolExecutor(max_workers=2) as executor:
-        f_text = executor.submit(hybrid_search.run_single_search, bin_path, DEFAULT_TEXT_DIR, query, 15)
-        f_code = executor.submit(hybrid_search.run_single_search, bin_path, DEFAULT_CODE_DIR, query, 15)
+        f_text = executor.submit(hybrid_search.run_single_search, bin_path, text_dir, query, 15)
+        f_code = executor.submit(hybrid_search.run_single_search, bin_path, code_dir, query, 15)
         text_res = f_text.result()
         code_res = f_code.result()
 
@@ -106,7 +109,8 @@ def search_codebase(
 
     # Format as clean markdown for AI agent ingestion
     mode_str = "Hybrid RRF + Local Re-Rank" if rerank else f"Hybrid RRF (k={k_val}, wt={w_text:.1f}, wc={w_code:.1f})"
-    output = [f"### grepai Hybrid Search Results: `{query}` ({mode_str})\n"]
+    proj_tag = f" [Project: {resolved_proj}]" if resolved_proj != "default" else ""
+    output = [f"### grepai Hybrid Search Results: `{query}` ({mode_str}){proj_tag}\n"]
 
     for idx, r in enumerate(results, 1):
         fp = r["file_path"]

@@ -7,6 +7,7 @@
 #>
 
 param (
+    [string]$Project,
     [string]$SourceDir = "$PSScriptRoot\grepai",
     [string]$TextRepo = "$PSScriptRoot\repo-text",
     [string]$CodeRepo = "$PSScriptRoot\repo-code",
@@ -20,6 +21,27 @@ $BinPath = "$PSScriptRoot\bin\grepai.exe"
 if (-not (Test-Path $BinPath)) {
     Write-Error "grepai.exe not found at $BinPath"
     exit 1
+}
+
+# Resolve project from registry if specified
+if ($Project) {
+    $regPath = Join-Path $PSScriptRoot "workspaces\registry.json"
+    if (Test-Path $regPath) {
+        try {
+            $reg = Get-Content -Path $regPath -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($reg.PSObject.Properties[$Project]) {
+                $pinfo = $reg.PSObject.Properties[$Project].Value
+                $SourceDir = $pinfo.source_path
+                $TextRepo = $pinfo.text_dir
+                $CodeRepo = $pinfo.code_dir
+                Write-Host "Resolved project '$Project' from registry." -ForegroundColor Cyan
+            } else {
+                Write-Warning "Project '$Project' not found in registry. Using default paths."
+            }
+        } catch {
+            Write-Warning "Could not parse registry.json: $_"
+        }
+    }
 }
 
 function Sync-Workspace([string]$workspaceDir, [string]$label) {

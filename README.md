@@ -240,5 +240,24 @@ args = ["e:\\Semantic_Coding\\mcp_server.py"]
 ### Antigravity IDE & Agent
 Equipped natively with `.gemini/skills/grepai-hybrid/SKILL.md` and MCP server tool definitions in `~/.gemini/antigravity/mcp/grepai-hybrid/`.
 
+---
+
+## 10. Multi-Project Support & Arbitrary Codebase Indexing
+
+To index and retrieve across any repository on your machine without altering its file tree:
+
+```powershell
+# 1. Index any project (e.g. praetor_silica or LDGM)
+.\index_project.ps1 -ProjectPath "E:\praetor_silica"
+
+# 2. Search explicitly by project name
+python hybrid_search.py "verify LM Studio setup" --project praetor_silica -n 3
+
+# 3. Or search automatically via CWD in Claude Code, Codex, or terminal:
+cd E:\praetor_silica
+python e:\Semantic_Coding\hybrid_search.py "platform lock file verification"
+```
+
+
 
 

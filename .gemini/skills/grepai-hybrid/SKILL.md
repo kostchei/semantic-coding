@@ -11,7 +11,12 @@ Use this skill when you need to find where functions, algorithms, data structure
 Run the hybrid search command using `run_command`:
 
 ```powershell
+# Search default project or auto-detect from current directory
 python e:\Semantic_Coding\hybrid_search.py "<query>" -n 5
+
+# Explicitly search any registered project (e.g. praetor_silica, LDGM)
+python e:\Semantic_Coding\hybrid_search.py "<query>" --project praetor_silica -n 5
+python e:\Semantic_Coding\hybrid_search.py "<query>" --project LDGM -n 5
 ```
 
 ### With Stage 2 Local Re-Ranking (High Precision)

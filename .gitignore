@@ -13,6 +13,7 @@ grepai/
 # Test workspaces with local configs (may contain local tokens) and large gob indices
 repo-text/
 repo-code/
+workspaces/
 *.gob
 
 # Python cache & virtual environments
