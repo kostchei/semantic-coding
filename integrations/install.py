@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import shutil
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 USER_HOME = Path.home()
@@ -52,11 +53,10 @@ def install_instructions():
 
 def install_claude_json():
     path = USER_HOME / ".claude.json"
-    if not path.is_file():
-        return
-
-    backup_file(path)
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = {}
+    if path.is_file():
+        backup_file(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
 
     # Deduplicate: Remove project-level grepai-hybrid if present
     projects = data.get("projects", {})
@@ -72,7 +72,7 @@ def install_claude_json():
 
     mcp_script = str(REPO_ROOT / "mcp_server.py")
     data["mcpServers"]["grepai-hybrid"] = {
-        "command": "python",
+        "command": sys.executable,
         "args": [mcp_script]
     }
 
@@ -96,11 +96,14 @@ def install_claude_settings():
     if "hooks" not in data:
         data["hooks"] = {}
 
+    # Claude Code's settings.json hooks schema wraps each command in a
+    # matcher-group with an inner "hooks" array -- a bare {"command": ...}
+    # entry is silently discarded rather than executed.
     data["hooks"]["UserPromptSubmit"] = [
-        {"command": f'python "{hook_script}" --event UserPromptSubmit'}
+        {"hooks": [{"type": "command", "command": f'"{sys.executable}" "{hook_script}" --event UserPromptSubmit'}]}
     ]
     data["hooks"]["SessionStart"] = [
-        {"command": f'python "{hook_script}" --event SessionStart'}
+        {"hooks": [{"type": "command", "command": f'"{sys.executable}" "{hook_script}" --event SessionStart'}]}
     ]
 
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -125,7 +128,7 @@ def install_antigravity():
 
     mcp_script = str(REPO_ROOT / "mcp_server.py")
     data["mcpServers"]["grepai-hybrid"] = {
-        "command": "python",
+        "command": sys.executable,
         "args": [mcp_script]
     }
     cfg_path.write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")

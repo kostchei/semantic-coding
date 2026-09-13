@@ -9,13 +9,25 @@ from semcode.registry import load_registry, save_registry, resolve_project
 
 class RegistryTests(unittest.TestCase):
     def test_load_existing_registry(self):
-        reg = load_registry()
-        self.assertIn("ORAC", reg)
-        self.assertIn("ash-rpg", reg)
-        self.assertIn("praetor_silica", reg)
-        self.assertIn("LDGM", reg)
-        for name, info in reg.items():
-            self.assertTrue(Path(info["source_path"]).is_dir(), f"Source path for {name} does not exist")
+        # Uses a synthetic registry rather than the real workspaces/registry.json,
+        # which is machine-local, untracked, and named after the author's own
+        # projects -- asserting on it fails on any other machine or in CI.
+        with tempfile.TemporaryDirectory() as tmp:
+            proj_dir = Path(tmp) / "sample_project"
+            proj_dir.mkdir()
+            reg_path = Path(tmp) / "registry.json"
+            sample = {
+                "sample_project": {
+                    "source_path": str(proj_dir),
+                    "text_dir": str(proj_dir / "text"),
+                    "code_dir": str(proj_dir / "code"),
+                }
+            }
+            save_registry(sample, str(reg_path))
+            reg = load_registry(str(reg_path))
+            self.assertIn("sample_project", reg)
+            for name, info in reg.items():
+                self.assertTrue(Path(info["source_path"]).is_dir(), f"Source path for {name} does not exist")
 
     def test_corrupt_registry_raises_and_never_overwrites(self):
         with tempfile.TemporaryDirectory() as tmp:

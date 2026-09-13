@@ -147,7 +147,7 @@ def trigger_auto_index(repo_path: Path, files: List[str]) -> str:
     if sys.platform == "win32":
         creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
 
-    cmd = [sys.executable, "-m", "semcode.indexer", str(repo_path), "--name", project_name]
+    cmd = [sys.executable, "-m", "semcode.auto_index", "run-job", project_name, str(repo_path)]
     try:
         subprocess.Popen(
             cmd,
@@ -168,6 +168,34 @@ def trigger_auto_index(repo_path: Path, files: List[str]) -> str:
         f"(job {job_id}, ~{eta_minutes} min for {file_count} files). "
         f"Retry after it finishes; status: `python -m semcode.auto_index status --project {project_name}`."
     )
+
+
+def run_index_job(project_name: str, repo_path: str) -> None:
+    """
+    Runs the actual indexer for a job created by trigger_auto_index, then updates
+    job.json with the final status. This is what the detached background process
+    launched by trigger_auto_index executes -- without it, job.json is left at
+    status="running" forever after the job finishes (success or failure), blocking
+    every subsequent auto-index attempt for the project.
+    """
+    from semcode.indexer import index_project
+
+    job_file = get_job_path(project_name)
+    job_data = get_job_status(project_name) or {}
+
+    try:
+        index_project(repo_path, project_name=project_name)
+    except Exception as exc:
+        job_data["status"] = "failed"
+        job_data["error"] = str(exc)
+        job_data["finished_at"] = datetime.now(timezone.utc).isoformat()
+        job_file.write_text(json.dumps(job_data, indent=2), encoding="utf-8")
+        raise
+
+    job_data["status"] = "completed"
+    job_data["error"] = None
+    job_data["finished_at"] = datetime.now(timezone.utc).isoformat()
+    job_file.write_text(json.dumps(job_data, indent=2), encoding="utf-8")
 
 
 def maybe_auto_index(path: str) -> Optional[str]:
@@ -260,6 +288,10 @@ def main():
 
     subparsers.add_parser("discover", help="Scan configured roots for active repositories")
 
+    run_job_parser = subparsers.add_parser("run-job", help="Internal: run an auto-index job and record its final status")
+    run_job_parser.add_argument("project_name")
+    run_job_parser.add_argument("repo_path")
+
     args = parser.parse_args()
 
     if args.subcommand == "status":
@@ -272,6 +304,9 @@ def main():
     elif args.subcommand == "discover":
         discovered = discover_and_index_active_repos()
         print(f"Discovery complete. Triggered {len(discovered)} auto-index jobs.")
+
+    elif args.subcommand == "run-job":
+        run_index_job(args.project_name, args.repo_path)
 
 
 if __name__ == "__main__":

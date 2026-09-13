@@ -4,7 +4,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from semcode.indexer import get_git_files, mirror_repository, run_indexing_daemon
 from semcode.registry import load_registry, save_registry
@@ -64,11 +64,15 @@ def sync_project(project_name: str, force: bool = False, timeout_seconds: int = 
     }
 
 
-def sync_all(force: bool = False, watch: bool = False, interval_seconds: int = 300) -> None:
-    """Sync all registered projects, optionally continuously in watch mode."""
+def sync_all(force: bool = False, watch: bool = False, interval_seconds: int = 300, project: Optional[str] = None) -> None:
+    """Sync all registered projects (or just `project`, if given), optionally continuously in watch mode."""
     while True:
-        registry = load_registry()
-        for pname in list(registry.keys()):
+        if project:
+            targets = [project]
+        else:
+            targets = list(load_registry().keys())
+
+        for pname in targets:
             try:
                 sync_project(pname, force=force)
             except Exception as exc:
@@ -89,10 +93,14 @@ def main():
     parser.add_argument("--interval", "-i", type=int, default=300, help="Poll interval in seconds for --watch")
     args = parser.parse_args()
 
-    if args.project:
+    if args.watch:
+        # --watch applies whether scoped to one --project or --all; a single sync
+        # branch for --project used to silently swallow --watch and exit after one pass.
+        sync_all(force=args.force, watch=True, interval_seconds=args.interval, project=args.project)
+    elif args.project:
         sync_project(args.project, force=args.force)
-    elif args.all or args.watch:
-        sync_all(force=args.force, watch=args.watch, interval_seconds=args.interval)
+    elif args.all:
+        sync_all(force=args.force, watch=False)
     else:
         parser.error("Specify --project <name> or --all")
 

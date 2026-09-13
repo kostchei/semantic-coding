@@ -35,7 +35,12 @@ if (-not $SkipSynthetic) {
         --output-cases $synthOut
     if ($LASTEXITCODE -ne 0) { throw "Phase 1 failed with exit code $LASTEXITCODE" }
     if (Test-Path $synthOut) {
-        $casesFile = $synthOut
+        $synthCaseCount = (Get-Content $synthOut -Raw | ConvertFrom-Json).Count
+        if ($synthCaseCount -gt 0) {
+            $casesFile = $synthOut
+        } else {
+            Write-Warning "Synthetic case generation produced 0 cases (check -SourceDir '$SourceDir'); keeping curated $casesFile instead."
+        }
     }
 }
 

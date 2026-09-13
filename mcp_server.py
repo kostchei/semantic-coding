@@ -16,9 +16,7 @@ from mcp.server.fastmcp import FastMCP
 script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(script_dir))
 
-import hybrid_search
 import semcode.pipeline as pipeline
-import semcode.registry as registry
 
 # Initialize FastMCP Server with prompt instructions
 mcp = FastMCP(
@@ -63,33 +61,18 @@ def search_codebase(
     if not 1 <= limit <= 15:
         raise ValueError("limit must be between 1 and 15")
 
-    # Resolve project text_dir and code_dir (compatible with test harness monkey-patching)
-    text_dir, code_dir, resolved_proj = hybrid_search.resolve_project_dirs(project=project)
-    source_path = None
-    try:
-        reg = registry.load_registry()
-        if resolved_proj in reg:
-            source_path = reg[resolved_proj].get("source_path")
-    except Exception:
-        pass
-
+    # Let the pipeline resolve the project itself (semcode.registry.resolve_project):
+    # this is what supports MCP client roots and triggers background auto-indexing
+    # for an unregistered-but-eligible git repo. Resolving here instead (e.g. via
+    # hybrid_search.resolve_project_dirs) would bypass both.
     res = pipeline.execute_hybrid_search(
         query=query,
-        project=resolved_proj,
-        text_dir=text_dir,
-        code_dir=code_dir,
+        project=project,
+        cwd=os.getcwd(),
         limit=limit,
         rerank=rerank,
         feedback_file=feedback_file,
     )
-    if source_path and not res.get("source_path"):
-        res["source_path"] = source_path
-        # Re-resolve absolute paths and URLs with source_path
-        for c in res.get("results", []):
-            rel_fp = str(c.get("file_path", "")).replace("/", "\\")
-            abs_fp = (Path(source_path) / rel_fp).resolve()
-            c["absolute_path"] = str(abs_fp)
-            c["file_url"] = f"file:///{str(abs_fp).replace(os.sep, '/')}"
 
     return pipeline.format_search_markdown(res)
 
