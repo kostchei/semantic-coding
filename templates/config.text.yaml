@@ -1,0 +1,21 @@
+# grepai configuration for nomic-embed-text via LM Studio
+# Model: 137M parameters (~0.6 GB FP32 / ~0.2 GB quantized)
+# Dimensions: 768
+version: 1
+embedder:
+  provider: lmstudio
+  model: text-embedding-nomic-embed-text-v1.5
+  endpoint: http://127.0.0.1:1234
+  dimensions: 768
+  parallelism: 4
+  request_timeout_seconds: 60
+store:
+  backend: gob
+chunking:
+  size: 300
+  overlap: 50
+search:
+  dedup:
+    enabled: false
+  hybrid:
+    enabled: false

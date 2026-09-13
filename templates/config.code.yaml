@@ -1,0 +1,21 @@
+# grepai configuration for 7B code embedding model via LM Studio
+# Model: 7B parameters (~7.5 GB Q8 / high quant)
+# Dimensions: Typically 4096 (adjust if your model outputs e.g. 3584 or 768)
+version: 1
+embedder:
+  provider: lmstudio
+  model: nomic-embed-code
+  endpoint: http://127.0.0.1:1234
+  dimensions: 4096
+  parallelism: 2
+  request_timeout_seconds: 120
+store:
+  backend: gob
+chunking:
+  size: 300
+  overlap: 50
+search:
+  dedup:
+    enabled: false
+  hybrid:
+    enabled: false

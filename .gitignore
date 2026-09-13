@@ -1,0 +1,26 @@
+# Executables and large binary tools
+bin/
+*.exe
+
+# Upstream testbed repository (cloned dynamically during setup/run)
+grepai/
+
+# Test workspaces with local configs (may contain local tokens) and large gob indices
+repo-text/
+repo-code/
+*.gob
+
+# Python cache & virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment files and credentials
+.env
+*token*
+*secret*
+
+# OS artifacts
+Thumbs.db
+.DS_Store

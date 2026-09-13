@@ -1,0 +1,98 @@
+[
+  {
+    "id": "sem_01",
+    "category": "Pure Semantic Intent",
+    "description": "Calculates exponential backoff delay with randomized jitter",
+    "query": "retry HTTP requests with exponential delay and randomized jitter",
+    "expected_file": "embedder/retry.go",
+    "expected_symbol": "Calculate"
+  },
+  {
+    "id": "sem_02",
+    "category": "Pure Semantic Intent",
+    "description": "Computes cosine similarity between two float vectors",
+    "query": "measure angle between high dimensional embedding representations",
+    "expected_file": "store/gob.go",
+    "expected_symbol": "cosineSimilarity"
+  },
+  {
+    "id": "sem_03",
+    "category": "Pure Semantic Intent",
+    "description": "Combines dense and sparse search rankings using reciprocal rank fusion",
+    "query": "fuse ranked search outputs from sparse and dense retrieval",
+    "expected_file": "search/hybrid.go",
+    "expected_symbol": "ReciprocalRankFusion"
+  },
+  {
+    "id": "sem_04",
+    "category": "Pure Semantic Intent",
+    "description": "Tree-sitter parser initialization across different language grammars",
+    "query": "parse abstract syntax trees for multiple programming languages",
+    "expected_file": "trace/extractor_ts.go",
+    "expected_symbol": "NewTreeSitterExtractor"
+  },
+  {
+    "id": "vocab_01",
+    "category": "Vocabulary Mismatch",
+    "description": "Extracts HTTP response headers to track remaining token allowances",
+    "query": "throttle client queries to stay within quota limits",
+    "expected_file": "embedder/rate_limiter.go",
+    "expected_symbol": "RateLimitHeaders"
+  },
+  {
+    "id": "vocab_02",
+    "category": "Vocabulary Mismatch",
+    "description": "Excludes files matching gitignore rules during filesystem crawl",
+    "query": "filter out binary artifacts and ignored disk paths",
+    "expected_file": "indexer/gitignore.go",
+    "expected_symbol": "GitIgnoreMatcher"
+  },
+  {
+    "id": "vocab_03",
+    "category": "Vocabulary Mismatch",
+    "description": "Sends batch embedding JSON payload to OpenAI-compatible server",
+    "query": "assemble request payload and send vectorization request to local daemon",
+    "expected_file": "embedder/lmstudio.go",
+    "expected_symbol": "EmbedBatch"
+  },
+  {
+    "id": "vocab_04",
+    "category": "Vocabulary Mismatch",
+    "description": "Graph traversal to locate upstream callers of a function",
+    "query": "inspect upstream callers of a target function identifier",
+    "expected_file": "trace/trace.go",
+    "expected_symbol": "TraceCallers"
+  },
+  {
+    "id": "struct_01",
+    "category": "Structural / Syntax",
+    "description": "Deterministic tie-breaking comparator for search score ordering",
+    "query": "tiebreak score ranking using deterministic chunk identification",
+    "expected_file": "store/ranking.go",
+    "expected_symbol": "SortResultsByScore"
+  },
+  {
+    "id": "struct_02",
+    "category": "Structural / Syntax",
+    "description": "Parses HTTP date format and integer seconds for Retry-After header",
+    "query": "read HTTP rate limit header reset timestamps RFC 7231",
+    "expected_file": "embedder/rate_limiter.go",
+    "expected_symbol": "parseRetryAfter"
+  },
+  {
+    "id": "distract_01",
+    "category": "Distractor Separation",
+    "description": "Actual dot product and norm math formula for vector cosine distance",
+    "query": "calculate cosine similarity dot product and vector norms",
+    "expected_file": "store/gob.go",
+    "expected_symbol": "cosineSimilarity"
+  },
+  {
+    "id": "distract_02",
+    "category": "Distractor Separation",
+    "description": "Configuring client timeout for embedding requests",
+    "query": "HTTP client timeout duration override option",
+    "expected_file": "embedder/lmstudio.go",
+    "expected_symbol": "WithLMStudioTimeout"
+  }
+]
