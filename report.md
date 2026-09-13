@@ -4,7 +4,7 @@
 **Target Projects:** `ash-rpg` (`D:\Code\ash-rpg`), `ORAC` (`D:\Code\ORAC`)  
 **Evaluation Prompt:** `"do the next relevant slice of UI"`  
 **Harnesses Tested:**
-1. **Antigravity** (Native IDE Agent with `grepai-hybrid` Two-Stage Retrieval)
+1. **Antigravity** (Native IDE Agent with `semcode` Two-Stage Retrieval)
 2. **OpenAI Codex CLI** (v0.147.0, model `gpt-5.6-luna`, non-interactive headless execution)
 3. **Anthropic Claude Code CLI** (v2.1.233, non-interactive headless execution)
 
@@ -12,25 +12,25 @@
 
 ## 1. Executive Summary
 
-This benchmark evaluates how AI agent harnesses discover, reason over, and execute code changes when prompted with high-ambiguity architectural requests (`"do the next relevant slice of UI"`). We contrast the performance of **`grepai-hybrid`** (Two-Stage Reciprocal Rank Fusion of 137M text synonyms + 7B algorithmic code embeddings) against baseline code-navigation behaviors (PowerShell directory traversals, ripgrep text scans, and unassisted LLM reasoning).
+This benchmark evaluates how AI agent harnesses discover, reason over, and execute code changes when prompted with high-ambiguity architectural requests (`"do the next relevant slice of UI"`). We contrast the performance of **`semcode`** (Two-Stage Reciprocal Rank Fusion of 137M text synonyms + 7B algorithmic code embeddings) against baseline code-navigation behaviors (PowerShell directory traversals, ripgrep text scans, and unassisted LLM reasoning).
 
 ### Key Takeaways
 
 1. **Semantic Disambiguation & Domain Polysemy:**
-   In `ash-rpg`, the word `"slice"` has a distinct double meaning: an architectural milestone concept (*"UI layout slice"*) and a low-level network state delta protocol (*"state slice diffing"* in `src/shared/slices.ts` and `src/server/slice-diff.ts`). `grepai-hybrid` instantaneously surfaced both dimensions in sub-second time, allowing the agent to align with existing design documents. Unassisted Codex interpreted the term colloquially, failed to discover the design documents, and hallucinated arbitrary UI additions.
+   In `ash-rpg`, the word `"slice"` has a distinct double meaning: an architectural milestone concept (*"UI layout slice"*) and a low-level network state delta protocol (*"state slice diffing"* in `src/shared/slices.ts` and `src/server/slice-diff.ts`). `semcode` instantaneously surfaced both dimensions in sub-second time, allowing the agent to align with existing design documents. Unassisted Codex interpreted the term colloquially, failed to discover the design documents, and hallucinated arbitrary UI additions.
 
 2. **Negative Invariant Preservation vs. Feature Hallucination:**
    In `ash-rpg`, the project's core architectural contract (documented in `README.md` and `docs/plans/minimal_table_companion_specification.md`) explicitly prohibits virtual dice rolling: *"Dice on the Table: No 'roll to hit' or damage roll buttons; the app supplies target numbers and modifiers at a glance for physical rolling."*
-   - **With `grepai-hybrid`:** The specification document was ranked **#2** in semantic search results (`RRF: 0.2698`), preventing violation of the negative invariant.
+   - **With `semcode`:** The specification document was ranked **#2** in semantic search results (`RRF: 0.2698`), preventing violation of the negative invariant.
    - **Without Hybrid (Codex):** Lacking semantic visibility into the spec, Codex hallucinated and injected a `Floating Dice Roller (FAB)` (`.floating-roller-fab`), directly violating the core project constraint.
 
 3. **Token & Context Economy:**
-   - **Antigravity + `grepai-hybrid`:** Retrieval consumes < 1,500 prompt tokens per query by pulling targeted 15–40 line snippets directly into context.
+   - **Antigravity + `semcode`:** Retrieval consumes < 1,500 prompt tokens per query by pulling targeted 15–40 line snippets directly into context.
    - **OpenAI Codex:** Incurred massive context-stuffing overhead (**48,148 tokens** on `ash-rpg`) due to recursive `Get-ChildItem` and regex grep scans across hundreds of files.
 
 4. **Harness Failure Modes:**
    - **Claude Code CLI (v2.1.233):** Failed execution in non-interactive mode (`claude -p`) due to an expired OAuth session (`Failed to authenticate: OAuth session expired and could not be refreshed`). A valid saved login can support local print mode. For unattended runs, use `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, an API key, or configured provider credentials. This was an authentication failure, not a retrieval result.
-   - **Codex CLI (v0.147.0):** Despite having `mcp_servers.grepai_hybrid` registered in `~/.codex/config.toml`, Codex defaulted to PowerShell execution primitives (`powershell.exe -Command ...`) rather than utilizing MCP tools autonomously for exploratory codebase navigation.
+   - **Codex CLI (v0.147.0):** Despite having `mcp_servers.semcode` registered in `~/.codex/config.toml`, Codex defaulted to PowerShell execution primitives (`powershell.exe -Command ...`) rather than utilizing MCP tools autonomously for exploratory codebase navigation.
 
 ---
 
@@ -55,7 +55,7 @@ Automated exclusions (`node_modules`, `.orac`, `site`, `releases`, `data`, `.git
 **Target:** `D:\Code\ash-rpg` (TypeScript, React, Vite, CSS, SQLite)  
 **Prompt:** `"do the next relevant slice of UI"`
 
-### Antigravity (with `grepai-hybrid`)
+### Antigravity (with `semcode`)
 
 #### Retrieval Phase
 Execution of `hybrid_search.py` on `ash-rpg` for `"next slice of UI"`:
@@ -129,7 +129,7 @@ claude -p "do the next relevant slice of UI"
 **Target:** `D:\Code\ORAC` (Python, FastAPI, Vanilla JS, CSS, SQLite governance engine)  
 **Prompt:** `"do the next relevant slice of UI"`
 
-### Antigravity (with `grepai-hybrid`)
+### Antigravity (with `semcode`)
 
 #### Retrieval Phase
 Execution of `hybrid_search.py` on `ORAC` for `"next slice of UI"`:
@@ -182,7 +182,7 @@ Querying `"cockpit review actions next slice"`:
 
 ## 5. Comparative Benchmark Matrix
 
-| Evaluation Metric | Antigravity + `grepai-hybrid` | OpenAI Codex CLI (v0.147.0) | Anthropic Claude Code CLI (v2.1.233) |
+| Evaluation Metric | Antigravity + `semcode` | OpenAI Codex CLI (v0.147.0) | Anthropic Claude Code CLI (v2.1.233) |
 | :--- | :--- | :--- | :--- |
 | **Navigation Latency** | **< 400 ms** (Sub-second vector lookup) | 12–35 seconds (Multiple PowerShell / rg scans) | N/A (Failed prior to exec) |
 | **Token Overhead** | **~1,200 tokens** (Precise relevant snippets) | **48,148+ tokens** (Raw file dumps & dir listings) | N/A |
@@ -213,7 +213,7 @@ To ensure compliance with the strict security policy, the workspace was audited 
 ## 7. Conclusion & Recommendations
 
 1. **Definite Measurable Improvement:**
-   `grepai-hybrid` provides a substantial leap over brute-force grep navigation. It eliminates token waste, resolves domain polysemy, and surfaces architectural constraints that prevent models from hallucinating invalid features.
+   `semcode` provides a substantial leap over brute-force grep navigation. It eliminates token waste, resolves domain polysemy, and surfaces architectural constraints that prevent models from hallucinating invalid features.
 
 2. **Harness Configuration Improvements:**
    - **For Codex:** Codex should be prompted with explicit MCP instructions or invoked with MCP tool execution enabled by default to avoid falling back to raw shell execution.

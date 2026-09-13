@@ -304,7 +304,7 @@ def format_search_markdown(search_data: Dict[str, Any]) -> str:
 
     mode_str = "Hybrid RRF + Local Re-Rank" if rerank else f"Hybrid RRF (k={k}, wt={wt:.1f}, wc={wc:.1f})"
     proj_tag = f" [Project: {project}]" if project and project != "default" else ""
-    lines = [f"### grepai Hybrid Search Results: `{query}` ({mode_str}){proj_tag}\n"]
+    lines = [f"### semcode Hybrid Search Results: `{query}` ({mode_str}){proj_tag}\n"]
 
     for idx, r in enumerate(results, 1):
         fp = r.get("absolute_path") or r.get("file_path")

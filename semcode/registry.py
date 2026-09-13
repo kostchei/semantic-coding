@@ -1,4 +1,4 @@
-"""Atomic, validating registry for grepai-hybrid projects."""
+"""Atomic, validating registry for semcode projects."""
 
 import json
 import os

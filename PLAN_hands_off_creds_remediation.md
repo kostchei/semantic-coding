@@ -11,11 +11,11 @@
 
 | Fact | Evidence |
 |---|---|
-| Hybrid MCP server is registered in Claude Code **twice**: user scope and one project entry | `~/.claude.json` (two `grepai-hybrid` blocks) |
-| In Claude Code the tool is **deferred** behind ToolSearch. The model never sees its schema unless it searches for it | Observed in this session: `mcp__grepai-hybrid__search_codebase` appears in the deferred-tool list |
-| Codex has `grepai_hybrid` enabled | `codex mcp list` |
-| Antigravity's `mcp_config.json` does **not** register grepai-hybrid. Only a stale descriptor dir exists, and it falsely says the server "auto-resolves from caller directory" | `~/.gemini/antigravity/mcp_config.json`, `~/.gemini/antigravity/mcp/grepai-hybrid/search_codebase.json` |
-| The Gemini/Antigravity skill is **repo-local**. It only loads when Semantic_Coding itself is open, never in ash-rpg/ORAC/etc. | `.gemini/skills/grepai-hybrid/SKILL.md` |
+| Hybrid MCP server is registered in Claude Code **twice**: user scope and one project entry | `~/.claude.json` (two `semcode` blocks) |
+| In Claude Code the tool is **deferred** behind ToolSearch. The model never sees its schema unless it searches for it | Observed in this session: `mcp__semcode__search_codebase` appears in the deferred-tool list |
+| Codex has `semcode` enabled | `codex mcp list` |
+| Antigravity's `mcp_config.json` does **not** register semcode. Only a stale descriptor dir exists, and it falsely says the server "auto-resolves from caller directory" | `~/.gemini/antigravity/mcp_config.json`, `~/.gemini/antigravity/mcp/semcode/search_codebase.json` |
+| The Gemini/Antigravity skill is **repo-local**. It only loads when Semantic_Coding itself is open, never in ash-rpg/ORAC/etc. | `.gemini/skills/semcode/SKILL.md` |
 | No global instruction mentions grepai: `~/.claude/CLAUDE.md` (one line), `~/.codex/AGENTS.md` (empty), `~/.gemini/GEMINI.md` (empty). No global skills dirs | inspected |
 | LM Studio token lives in Windows Credential Manager, target `PraetorSilica/LMStudioDev`, user `lmstudio-dev` | `cmdkey /list` |
 | **The same token is copied in plaintext into 10 `.grepai/config.yaml` files** (`repo-text`, `repo-code`, and 4 projects x 2) | `api_key:` non-empty in every workspace config (values not printed) |
@@ -44,7 +44,7 @@ Every gap found in the new-repo walkthrough, the fix, and the test that proves i
 | G3 | `~/.gemini/GEMINI.md` empty | Managed instruction block (Layer 2) | `doctor.ps1`; Antigravity manual protocol passes (G9) |
 | G4 | `~/.claude/CLAUDE.md` only has "no fallbacks" | Managed instruction block appended below your line, never replacing it (Layer 2) | `doctor.ps1`; your existing line is unchanged |
 | G5 | No Claude Code hooks | `UserPromptSubmit` + `SessionStart` hooks at user scope (Layer 3) | Hook unit tests; a prompt in a registered repo shows injected hits; a prompt in an unrelated dir injects nothing |
-| G6 | Antigravity doesn't register grepai-hybrid | Add it to `~/.gemini/antigravity/mcp_config.json`, install a global skill, delete the stale descriptor (Layer 4) | `doctor.ps1`; the tool appears in a new Antigravity conversation |
+| G6 | Antigravity doesn't register semcode | Add it to `~/.gemini/antigravity/mcp_config.json`, install a global skill, delete the stale descriptor (Layer 4) | `doctor.ps1`; the tool appears in a new Antigravity conversation |
 | G7 | Claude Code hides (defers) the tool | Server `instructions=` (these reach the system prompt even while the tool is deferred; seen in this session), a "when to use" tool description, and the prompt hook, which makes deferral irrelevant. Also check whether Claude Code has a setting to always load this server's tools (e.g. the `ENABLE_TOOL_SEARCH` env setting) and use it if it exists (Layer 1) | Unprompted Claude run calls the tool before Grep/Glob (G9) |
 | G8 | No `project` → silently searches the grepai Go testbed (`hybrid_search.py:312-315`) | Delete the default. Resolution is explicit arg → MCP roots → server CWD → **error** naming the path and the auto-index status. Same for the CLI and `sync_hybrid_indices.ps1` defaults (Layer 1) | Unit tests: unknown cwd raises; no code path returns `repo-text`/`repo-code` |
 | G9 | Only "instructed" harness evidence exists | New **unprompted** harness mode: prompts never mention grepai, the agent's normal toolset and your real global config, plus a never-indexed repo scenario. Correct ASSESSMENT.md so it no longer implies hands-off use (Layer 6) | ≥80% tool-first across Claude and Codex × ash-rpg, ORAC and one new repo; results stored in `harness-results/` |
@@ -74,7 +74,7 @@ Every gap found in the new-repo walkthrough, the fix, and the test that proves i
 - Rewrite the tool description around **when to use it**, not how it works internally (the 137M/7B/RRF details don't help the model decide).
 
 **Layer 2: Global instruction blocks** (all harnesses, cheap)
-- Write one managed block, fenced with `<!-- grepai-hybrid:begin/end -->`, into `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and `~/.gemini/GEMINI.md`. It's generated from a single template in the repo (`integrations/instructions.md`). Keep it to about 6 lines: retrieval policy, the "Grep only for exact strings" rule, and "if the tool errors, report the error, don't work around it".
+- Write one managed block, fenced with `<!-- semcode:begin/end -->`, into `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, and `~/.gemini/GEMINI.md`. It's generated from a single template in the repo (`integrations/instructions.md`). Keep it to about 6 lines: retrieval policy, the "Grep only for exact strings" rule, and "if the tool errors, report the error, don't work around it".
 
 **Layer 3: Claude Code hooks** (the part that actually removes "remember to")
 - `UserPromptSubmit` -> `integrations/hooks/prompt_context.py`
@@ -87,8 +87,8 @@ Every gap found in the new-repo walkthrough, the fix, and the test that proves i
 - Not doing: a PreToolUse hook that blocks Grep. Too noisy, and it would stop exact-string searches that should run.
 
 **Layer 4: Codex and Antigravity parity**
-- **Codex:** check whether this Codex build supports user-level hooks (plugin manifests already mention `hooks`, per the stderr in `harness-results/`). If it does, reuse `prompt_context.py`. If not, rely on the AGENTS.md block plus a global skill in `~/.codex/skills/grepai-hybrid/`.
-- **Antigravity:** add `grepai-hybrid` to `~/.gemini/antigravity/mcp_config.json`, move the skill to the global skills location (check the path Antigravity loads globally), and delete the stale descriptor dir.
+- **Codex:** check whether this Codex build supports user-level hooks (plugin manifests already mention `hooks`, per the stderr in `harness-results/`). If it does, reuse `prompt_context.py`. If not, rely on the AGENTS.md block plus a global skill in `~/.codex/skills/semcode/`.
+- **Antigravity:** add `semcode` to `~/.gemini/antigravity/mcp_config.json`, move the skill to the global skills location (check the path Antigravity loads globally), and delete the stale descriptor dir.
 - Keep one skill source in the repo (`integrations/skill/SKILL.md`) and render it into each harness. Fix its content: it references `run_command` and the bogus default project.
 
 **Layer 5: Freshness without manual steps**
@@ -148,14 +148,14 @@ Every gap found in the new-repo walkthrough, the fix, and the test that proves i
 - `generate_synthetic_cases.py:176` never passes a token, so with auth enabled the LLM path always fails and silently uses heuristics.
 
 ### B.2 Design: Windows Credential Manager as the single source, injected per process
-- **Store:** one Generic credential, `grepai-hybrid/lmstudio`, protected by DPAPI and scoped to your Windows user. Set it once with a prompt, so the value never lands in shell history:
+- **Store:** one Generic credential, `semcode/lmstudio`, protected by DPAPI and scoped to your Windows user. Set it once with a prompt, so the value never lands in shell history:
   ```powershell
-  cmdkey /generic:grepai-hybrid/lmstudio /user:lmstudio /pass
+  cmdkey /generic:semcode/lmstudio /user:lmstudio /pass
   ```
   (or `python -m semcode.creds set lmstudio`, which uses `getpass`).
 - **One reader:** `semcode/creds.py`
   - Stdlib ctypes with correct `argtypes`/`restype`, `CredFree` in `finally`, UTF-16 decode.
-  - Raises `CredentialMissing("grepai-hybrid/lmstudio not found. Run: cmdkey /generic:... /pass")`. No env fallback. Non-Windows raises `NotImplementedError`.
+  - Raises `CredentialMissing("semcode/lmstudio not found. Run: cmdkey /generic:... /pass")`. No env fallback. Non-Windows raises `NotImplementedError`.
 - **Nothing on disk:** delete `api_key` from every generated config. Every grepai invocation (search, watch, index) goes through one launcher, `semcode/grepai_runner.py`, which builds `env = {**os.environ, "OPENAI_API_KEY": creds.get("lmstudio")}` for **that child process only**. grepai picks it up (`openai.go:149-150`). Nothing is set at user or machine level, and PowerShell scripts never hold the secret.
   - This also means indexing moves out of PowerShell `Start-Process` and into Python. That's needed anyway (see C).
 - **Remove** the `--token` flag and `LM_API_TOKEN`.
@@ -167,7 +167,7 @@ Every gap found in the new-repo walkthrough, the fix, and the test that proves i
   - turning off LM Studio auth and binding to 127.0.0.1 (simplest, but gives up defence-in-depth; your call, see Part F)
 
 ### B.3 Migration (in order)
-1. Create `grepai-hybrid/lmstudio` and **rotate** the LM Studio key. The old key has been sitting in plaintext in 10 files, which are also copied by any backup of `E:\`.
+1. Create `semcode/lmstudio` and **rotate** the LM Studio key. The old key has been sitting in plaintext in 10 files, which are also copied by any backup of `E:\`.
 2. Land `creds.py` and `grepai_runner.py`, switch every caller, then delete the `PraetorSilica/LMStudioDev` reads.
 3. Strip `api_key` from the 10 existing configs (script it; don't re-index).
 4. Add `tests/test_no_plaintext_secrets.py`: fail if any `workspaces/**/.grepai/config.yaml`, `repo-*/.grepai/config.yaml`, or tracked file contains a non-empty `api_key`/`Bearer`. Add a doctor check for the same.
@@ -245,8 +245,8 @@ Severity: **H** = wrong results, data loss, or secret exposure. **M** = broken o
 | L | `HYBRID_PIPELINE_PLAN.md` | Phases 2-5 still unchecked although implemented. Mark it historical or fold it into SYSTEM_STATE. |
 | L | `templates/config.*.yaml` | Not used by any script (configs are generated inline, and with a different provider). Dangling. |
 | L | `.gitignore` | `*token*` and `*secret*` would silently ignore legitimate files (e.g. `tokenizer.py`, `test_no_plaintext_secrets.py`). `benchmark_results.json` (written by `run_benchmark.ps1`) isn't ignored. |
-| L | `~/.claude.json` | Duplicate grepai-hybrid registration (user and project scope). |
-| L | `~/.gemini/antigravity/mcp/grepai-hybrid/` | Stale descriptor with a false auto-resolve claim. |
+| L | `~/.claude.json` | Duplicate semcode registration (user and project scope). |
+| L | `~/.gemini/antigravity/mcp/semcode/` | Stale descriptor with a false auto-resolve claim. |
 
 ---
 

@@ -1,4 +1,4 @@
-"""End-to-end system diagnostic and doctor suite for grepai-hybrid."""
+"""End-to-end system diagnostic and doctor suite for semcode."""
 
 import json
 from pathlib import Path
@@ -31,7 +31,7 @@ class DoctorSuite:
 
     def run_all(self) -> bool:
         print("=" * 68)
-        print("         grepai-hybrid System Doctor & Diagnostics          ")
+        print("             semcode System Doctor & Diagnostics            ")
         print("=" * 68)
 
         # 1. Python imports
@@ -57,7 +57,7 @@ class DoctorSuite:
         from semcode.creds import read_credential, TARGET_LMSTUDIO, TARGET_CLAUDE
         lm_token = read_credential(TARGET_LMSTUDIO)
         claude_token = read_credential(TARGET_CLAUDE)
-        self.report("LM Studio credential (grepai-hybrid/lmstudio)", bool(lm_token),
+        self.report("LM Studio credential (semcode/lmstudio)", bool(lm_token),
                     f"Present in Windows Credential Manager (length {len(lm_token) if lm_token else 0})",
                     "Run `python -m semcode.creds set lmstudio`")
         self.report("Claude Code OAuth credential", bool(claude_token),
@@ -102,10 +102,10 @@ class DoctorSuite:
         if claude_json_path.is_file():
             try:
                 cdata = json.loads(claude_json_path.read_text(encoding="utf-8"))
-                has_global_mcp = "grepai-hybrid" in cdata.get("mcpServers", {})
+                has_global_mcp = "semcode" in cdata.get("mcpServers", {})
                 for pkey, pval in cdata.get("projects", {}).items():
                     if "semantic_coding" in pkey.lower():
-                        if "grepai-hybrid" in pval.get("mcpServers", {}):
+                        if "semcode" in pval.get("mcpServers", {}):
                             no_dup_proj = False
             except Exception:
                 pass
@@ -128,7 +128,7 @@ class DoctorSuite:
         claude_md = USER_HOME / ".claude" / "CLAUDE.md"
         has_claude_block = False
         if claude_md.is_file():
-            has_claude_block = "<!-- grepai-hybrid:begin -->" in claude_md.read_text(encoding="utf-8")
+            has_claude_block = "<!-- semcode:begin -->" in claude_md.read_text(encoding="utf-8")
         self.report("Claude Code global instruction block", has_claude_block,
                     str(claude_md), "Run `powershell -File install_integrations.ps1`")
 
@@ -136,11 +136,11 @@ class DoctorSuite:
         codex_md = USER_HOME / ".codex" / "AGENTS.md"
         has_codex_block = False
         if codex_md.is_file():
-            has_codex_block = "<!-- grepai-hybrid:begin -->" in codex_md.read_text(encoding="utf-8")
+            has_codex_block = "<!-- semcode:begin -->" in codex_md.read_text(encoding="utf-8")
         self.report("Codex global instruction block", has_codex_block,
                     str(codex_md), "Run `powershell -File install_integrations.ps1`")
 
-        codex_skill = USER_HOME / ".codex" / "skills" / "grepai-hybrid" / "SKILL.md"
+        codex_skill = USER_HOME / ".codex" / "skills" / "semcode" / "SKILL.md"
         self.report("Codex global skill", codex_skill.is_file(),
                     str(codex_skill), "Run `powershell -File install_integrations.ps1`")
 
@@ -150,7 +150,7 @@ class DoctorSuite:
         if agy_mcp.is_file():
             try:
                 adata = json.loads(agy_mcp.read_text(encoding="utf-8"))
-                has_agy_mcp = "grepai-hybrid" in adata.get("mcpServers", {})
+                has_agy_mcp = "semcode" in adata.get("mcpServers", {})
             except Exception:
                 pass
         self.report("Antigravity MCP server registered", has_agy_mcp,
@@ -159,15 +159,15 @@ class DoctorSuite:
         agy_md = USER_HOME / ".gemini" / "GEMINI.md"
         has_agy_block = False
         if agy_md.is_file():
-            has_agy_block = "<!-- grepai-hybrid:begin -->" in agy_md.read_text(encoding="utf-8")
+            has_agy_block = "<!-- semcode:begin -->" in agy_md.read_text(encoding="utf-8")
         self.report("Antigravity global instruction block", has_agy_block,
                     str(agy_md), "Run `powershell -File install_integrations.ps1`")
 
-        agy_skill = USER_HOME / ".gemini" / "config" / "skills" / "grepai-hybrid" / "SKILL.md"
+        agy_skill = USER_HOME / ".gemini" / "config" / "skills" / "semcode" / "SKILL.md"
         self.report("Antigravity global skill", agy_skill.is_file(),
                     str(agy_skill), "Run `powershell -File install_integrations.ps1`")
 
-        agy_stale = USER_HOME / ".gemini" / "antigravity" / "mcp" / "grepai-hybrid"
+        agy_stale = USER_HOME / ".gemini" / "antigravity" / "mcp" / "semcode"
         self.report("Antigravity stale descriptor removed", not agy_stale.exists(),
                     "No stale descriptor dir", f"Delete {agy_stale}")
 

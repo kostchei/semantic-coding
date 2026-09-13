@@ -72,7 +72,7 @@ With a 24 GB GPU, all three models remain memory-resident simultaneously in LM S
 * [x] Validate live performance: Hit@3 increased from 50.0% to 66.7%.
 
 ### Phase 2: Local Re-ranking Layer (`semcode.pipeline`)
-* [x] Integrate with LM Studio `/v1/chat/completions` endpoint using token from Windows Credential Store (`grepai-hybrid/lmstudio`).
+* [x] Integrate with LM Studio `/v1/chat/completions` endpoint using token from Windows Credential Store (`semcode/lmstudio`).
 * [x] Prompt Engineering for fast snippet evaluation formatted with snippet bounding boxes.
 * [x] Fail loudly if LLM service is unreachable or unconfigured.
 * [x] Add `--rerank` flag to CLI and `--rerank-model` option.

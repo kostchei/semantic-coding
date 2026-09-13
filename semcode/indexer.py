@@ -1,4 +1,4 @@
-"""Git-based mirror and indexing lifecycle manager for grepai-hybrid."""
+"""Git-based mirror and indexing lifecycle manager for semcode."""
 
 import argparse
 import os
@@ -18,7 +18,8 @@ DEFAULT_WORKSPACES_DIR = REPO_ROOT / "workspaces"
 
 TEXT_MODEL = "text-embedding-nomic-embed-text-v1.5@f32"
 CODE_MODEL = "nomic-embed-code-v1.5@f32"
-EMBED_DIMENSIONS = 768
+TEXT_DIMENSIONS = 768
+CODE_DIMENSIONS = 4096
 
 MANDATORY_EXCLUDES = {
     ".grepai",
@@ -301,8 +302,8 @@ def index_project(
     mirror_repository(resolved_path, code_workspace, files)
 
     # 2. Write configs without plaintext keys
-    write_grepai_config(text_workspace, TEXT_MODEL, EMBED_DIMENSIONS, parallelism=4, endpoint=endpoint)
-    write_grepai_config(code_workspace, CODE_MODEL, EMBED_DIMENSIONS, parallelism=2, endpoint=endpoint)
+    write_grepai_config(text_workspace, TEXT_MODEL, TEXT_DIMENSIONS, parallelism=4, endpoint=endpoint)
+    write_grepai_config(code_workspace, CODE_MODEL, CODE_DIMENSIONS, parallelism=2, endpoint=endpoint)
 
     # 3. Index text and code sequentially to prevent GPU contention
     print(f"[{name}] Indexing 137M Text model...")
@@ -334,7 +335,7 @@ def index_project(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Index a repository into grepai-hybrid")
+    parser = argparse.ArgumentParser(description="Index a repository into semcode")
     parser.add_argument("project_path", type=str, help="Path to git project root")
     parser.add_argument("--name", "-n", type=str, help="Project name override")
     parser.add_argument("--timeout", "-t", type=int, default=600, help="Indexing timeout in seconds")

@@ -1,14 +1,14 @@
-# AI-Assisted Security & Architectural Invariant Audit Guide: Claude Code + grepai-hybrid
+# AI-Assisted Security & Architectural Invariant Audit Guide: Claude Code + semcode
 
 > **Adapted specifically for `ash-rpg` (Distributed Tabletop Companion) and `ORAC` (Autonomous Agent Governance Spine).**
 
-Claude Code and `grepai-hybrid` work together for continuous AI-assisted security and architectural code audits. Claude leverages the two-stage hybrid retrieval engine (137M text model for terminology/synonyms + 7B code model for AST and execution semantics fused via Reciprocal Rank Fusion) to pinpoint critical security seams, analyze execution traces, and generate auditable markdown reports under `findings/`.
+Claude Code and `semcode` work together for continuous AI-assisted security and architectural code audits. Claude leverages the two-stage hybrid retrieval engine (137M text model for terminology/synonyms + 7B code model for AST and execution semantics fused via Reciprocal Rank Fusion) to pinpoint critical security seams, analyze execution traces, and generate auditable markdown reports under `findings/`.
 
 ---
 
-## 1. Connect grepai / grepai-hybrid to Claude Code
+## 1. Connect grepai / semcode to Claude Code
 
-Claude Code can be configured to use `grepai` and the multi-project `grepai-hybrid` engine in both target repositories.
+Claude Code can be configured to use `grepai` and the multi-project `semcode` engine in both target repositories.
 
 ### 1-Click Automated Setup
 
@@ -19,7 +19,7 @@ From `E:\Semantic_Coding`, run the integration installer:
 ```
 
 This automatically:
-1. Configures `grepai-hybrid` in `~/.claude.json`.
+1. Configures `semcode` in `~/.claude.json`.
 2. Deploys `~/.claude/hooks/prompt_context.py` to auto-inject hybrid search suggestions on `UserPromptSubmit` and `SessionStart`.
 3. Adds managed instructions into `~/.claude/CLAUDE.md` directing Claude to invoke `search_codebase` before falling back to manual grep/find.
 
@@ -35,7 +35,7 @@ Claude Code communicates with the central multi-project hybrid server via `~/.cl
 ```json
 {
   "mcpServers": {
-    "grepai-hybrid": {
+    "semcode": {
       "type": "stdio",
       "command": "python",
       "args": ["e:\\Semantic_Coding\\mcp_server.py"],
@@ -49,7 +49,7 @@ When Claude Code launches in `D:\Code\ash-rpg` or `D:\Code\ORAC`, `mcp_server.py
 
 > [!NOTE]
 > **Absolute Path Resolution:** `search_codebase` returns canonical absolute paths and clickable `file:///` URLs (e.g. `file:///D:/Code/ash-rpg/src/server/app.ts`), enabling Claude Code to directly read, edit, or diff target files without ambiguity or path reconciliation.
-> **Zero Plaintext Secrets:** Authentication with LM Studio is managed via Windows Credential Manager (`grepai-hybrid/lmstudio`), with child-only environment injection (`OPENAI_API_KEY`).
+> **Zero Plaintext Secrets:** Authentication with LM Studio is managed via Windows Credential Manager (`semcode/lmstudio`), with child-only environment injection (`OPENAI_API_KEY`).
 
 ---
 
@@ -276,7 +276,7 @@ python e:\Semantic_Coding\hybrid_search.py "compensating actions physical emerge
    cd D:\Code\ash-rpg
    claude
    ```
-   Dispatch any of the adapted prompts above. Claude Code queries `grepai-hybrid` via MCP to retrieve bounded, semantic context instead of scanning arbitrary files.
+   Dispatch any of the adapted prompts above. Claude Code queries `semcode` via MCP to retrieve bounded, semantic context instead of scanning arbitrary files.
 
 4. **Verify Findings in Source:**
    Confirm every finding by reading the source code directly at the returned line ranges before marking as verified.

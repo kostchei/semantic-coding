@@ -1,9 +1,9 @@
 ---
-name: grepai-hybrid
+name: semcode
 description: Perform deep semantic code search across the codebase using the two-stage hybrid retrieval engine combining 137M text embeddings (synonyms), 7B code embeddings (algorithmic logic), and local LLM re-ranking.
 ---
 
-# grepai-hybrid Skill
+# semcode Skill
 
 Use this skill when you need to find where functions, algorithms, data structures, or business concepts are implemented in the codebase.
 

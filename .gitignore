@@ -1,6 +1,6 @@
 # Binary tools directory - only track wrapper scripts and docs
 bin/*
-!bin/grepai-hybrid.cmd
+!bin/semcode.cmd
 !bin/README.md
 !bin/CHANGELOG.md
 !bin/LICENSE

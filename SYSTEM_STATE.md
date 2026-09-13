@@ -270,11 +270,11 @@ Configures all environments idempotently with managed instruction blocks:
   - MCP registration in `~/.codex/config.toml`.
   - Managed instruction block in `~/.codex/AGENTS.md`.
 - **Google Antigravity:**
-  - Global MCP tool in `~/.gemini/antigravity/mcp/grepai-hybrid/`.
-  - Native agent skill in `.gemini/skills/grepai-hybrid/SKILL.md`.
+  - Global MCP tool in `~/.gemini/antigravity/mcp/semcode/`.
+  - Native agent skill in `.gemini/skills/semcode/SKILL.md`.
 
 ### 2. Zero Credential Leak Guarantee (Windows Credential Manager)
-- Sole source of truth for LM Studio authentication is Windows Credential Manager under `grepai-hybrid/lmstudio` (User: `lmstudio`).
+- Sole source of truth for LM Studio authentication is Windows Credential Manager under `semcode/lmstudio` (User: `lmstudio`).
 - Generic credential reader/writer (`semcode.creds`) uses Windows Native `Advapi32.dll` (`CredReadW` / `CredWriteW`), supporting UTF-8 and UTF-16LE without corrupting tokens.
 - All 10 `.grepai/config.yaml` files have `api_key: ""` (empty).
 - During indexing and querying, `semcode.grepai_runner` resolves the token from Windows Credential Manager and injects it strictly into the child process environment as `OPENAI_API_KEY`. No secrets are exposed on disk, in CLI flags, or in log files.
@@ -283,7 +283,7 @@ Configures all environments idempotently with managed instruction blocks:
 
 ## 8. Multi-Project Hybrid Indexing & Production Workspaces
 
-To support arbitrary production codebases without tree pollution or file conflicts, `grepai-hybrid` features a centralized multi-project workspace architecture:
+To support arbitrary production codebases without tree pollution or file conflicts, `semcode` features a centralized multi-project workspace architecture:
 
 ### Architecture
 - **Pristine Source Repositories:** Target repositories remain 100% clean and untouched.
@@ -319,7 +319,7 @@ When an AI agent or developer navigates to an unindexed git repository:
 The diagnostics engine (`semcode.doctor`) validates the complete operational chain:
 1. Python runtime and `mcp` / `semcode` import sanity
 2. `grepai.exe` binary accessibility & version verification
-3. Windows Credential Manager target `grepai-hybrid/lmstudio` exists and is non-empty
+3. Windows Credential Manager target `semcode/lmstudio` exists and is non-empty
 4. LM Studio API connectivity on `http://127.0.0.1:1234/v1/models`
 5. LM Studio embeddings generation test call with authenticated header
 6. Workspace registry (`workspaces/registry.json`) schema validation & corruption check

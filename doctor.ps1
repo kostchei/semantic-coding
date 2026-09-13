@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    End-to-end health verification for grepai-hybrid and agent integrations
+    End-to-end health verification for semcode and agent integrations
 #>
 
 $ErrorActionPreference = "Stop"

@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1540" viewBox="0 0 2000 1540" role="img" aria-labelledby="title desc">
+<title id="title">How Semcode works: from repository to relevant code</title>
+<desc id="desc">Architecture infographic showing Git-aware mirrored indexing, local text and code embeddings, project resolution, parallel dense retrieval, weighted reciprocal rank fusion, optional LLM reranking, source-linked results, telemetry, evaluation, prototype training, and operational support. Thick arrows indicate qualitative value added, not measured gains or ranking weights.</desc>
+<defs>
+<marker id="a7389A3" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L13 6.5 L0 13 Z" fill="#7389A3"/></marker>
+<marker id="a5BDAC5" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L13 6.5 L0 13 Z" fill="#5BDAC5"/></marker>
+<marker id="aAD9AFF" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L13 6.5 L0 13 Z" fill="#AD9AFF"/></marker>
+<marker id="aFFC778" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L13 6.5 L0 13 Z" fill="#FFC778"/></marker>
+</defs><rect width="2000" height="1540" fill="#0A1423"/><g font-family="Segoe UI, Arial, sans-serif">
+<text x="60" y="64" font-size="18" fill="#5BDAC5" font-weight="700">SEMCODE  /  SYSTEM FLOW</text>
+<text x="60" y="124" font-size="46" fill="#F2F7FF" font-weight="700">From “where is it?” to the code that matters.</text>
+<text x="60" y="165" font-size="23" fill="#B8C8DC" font-weight="400">Two complementary embedding models • local retrieval • one ranked set of source evidence</text>
+<path d="M60 209 H125" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)"/>
+<text x="140" y="216" font-size="17" fill="#B8C8DC" font-weight="400">Plumbing</text>
+<path d="M300 209 H365" fill="none" stroke="#5BDAC5" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a5BDAC5)"/>
+<text x="380" y="216" font-size="17" fill="#B8C8DC" font-weight="400">Core value added</text>
+<path d="M605 209 H670" fill="none" stroke="#AD9AFF" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aAD9AFF)" stroke-dasharray="9 9"/>
+<text x="685" y="216" font-size="17" fill="#B8C8DC" font-weight="400">Optional / offline</text>
+<text x="1070" y="216" font-size="18" fill="#91A6BF" font-weight="400">Arrow strength is qualitative, not a measured gain or model weight.</text>
+<text x="60" y="278" font-size="18" fill="#5BDAC5" font-weight="700">01  BUILD &amp; REFRESH THE SEARCHABLE MEMORY</text>
+<rect x="60" y="305" width="270" height="185" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="60" y="327" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="82" y="345" font-size="24" fill="#F2F7FF" font-weight="650">Source repository</text>
+<text x="82" y="380" font-size="18" fill="#B8C8DC" font-weight="400">Tracked + untracked files</text>
+<text x="82" y="404" font-size="18" fill="#B8C8DC" font-weight="400">Git ignores respected</text>
+<text x="82" y="428" font-size="18" fill="#B8C8DC" font-weight="400">Agent folders, submodules</text>
+<text x="82" y="452" font-size="18" fill="#B8C8DC" font-weight="400">and worktrees excluded</text>
+<text x="82" y="470" font-size="15" fill="#5BDAC5" font-weight="600">semcode/indexer.py</text>
+<rect x="390" y="305" width="270" height="185" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="390" y="327" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="412" y="345" font-size="24" fill="#F2F7FF" font-weight="650">Clean dual mirrors</text>
+<text x="412" y="380" font-size="18" fill="#B8C8DC" font-weight="400">repo-text + repo-code</text>
+<text x="412" y="404" font-size="18" fill="#B8C8DC" font-weight="400">Copies outside the source</text>
+<text x="412" y="428" font-size="18" fill="#B8C8DC" font-weight="400">Add / change / delete sync</text>
+<text x="412" y="470" font-size="15" fill="#5BDAC5" font-weight="600">indexer.py · sync.py</text>
+<rect x="720" y="305" width="300" height="185" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="720" y="327" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="742" y="345" font-size="24" fill="#F2F7FF" font-weight="650">grepai + LM Studio</text>
+<text x="742" y="380" font-size="18" fill="#B8C8DC" font-weight="400">Chunk source: 300 / 50 overlap</text>
+<text x="742" y="404" font-size="18" fill="#B8C8DC" font-weight="400">Text: 137M → 768 dimensions</text>
+<text x="742" y="428" font-size="18" fill="#B8C8DC" font-weight="400">Code: 7B → 4096 dimensions</text>
+<text x="742" y="470" font-size="15" fill="#5BDAC5" font-weight="600">Initial indexing: text, then code</text>
+<rect x="1080" y="305" width="270" height="185" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1080" y="327" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="1102" y="345" font-size="24" fill="#F2F7FF" font-weight="650">Two vector stores</text>
+<text x="1102" y="380" font-size="18" fill="#B8C8DC" font-weight="400">Separate .grepai/index.gob</text>
+<text x="1102" y="404" font-size="18" fill="#B8C8DC" font-weight="400">One store for each model</text>
+<text x="1102" y="428" font-size="18" fill="#B8C8DC" font-weight="400">Registry maps source → stores</text>
+<text x="1102" y="470" font-size="15" fill="#5BDAC5" font-weight="600">Local files · registry.py</text>
+<rect x="1420" y="305" width="520" height="185" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1420" y="327" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="1442" y="345" font-size="24" fill="#F2F7FF" font-weight="650">Index lifecycle</text>
+<text x="1442" y="380" font-size="18" fill="#B8C8DC" font-weight="400">Manual index or eligible new-repo auto-index</text>
+<text x="1442" y="404" font-size="18" fill="#B8C8DC" font-weight="400">Detached worker reports indexing status</text>
+<text x="1442" y="428" font-size="18" fill="#B8C8DC" font-weight="400">Incremental sync: once or watch / polling</text>
+<text x="1442" y="470" font-size="15" fill="#5BDAC5" font-weight="600">auto_index.py · config/auto_index.json · sync.py</text>
+<path d="M330 397 H390" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)"/>
+<path d="M660 397 H720" fill="none" stroke="#5BDAC5" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a5BDAC5)"/>
+<path d="M1020 397 H1080" fill="none" stroke="#5BDAC5" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a5BDAC5)"/>
+<path d="M1420 452 H1350" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)" stroke-dasharray="9 9"/>
+<text x="60" y="555" font-size="18" fill="#5BDAC5" font-weight="700">02  FIND THE IMPLEMENTATION</text>
+<rect x="60" y="675" width="270" height="205" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="60" y="697" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="82" y="715" font-size="24" fill="#F2F7FF" font-weight="650">Intent → tool call</text>
+<text x="82" y="750" font-size="18" fill="#B8C8DC" font-weight="400">“Where is retry backoff?”</text>
+<text x="82" y="774" font-size="18" fill="#B8C8DC" font-weight="400">Claude / Codex / Antigravity</text>
+<text x="82" y="798" font-size="18" fill="#B8C8DC" font-weight="400">MCP: search_codebase</text>
+<text x="82" y="822" font-size="18" fill="#B8C8DC" font-weight="400">CLI: hybrid_search.py</text>
+<text x="82" y="860" font-size="15" fill="#5BDAC5" font-weight="600">Instructions · skills · Claude hooks</text>
+<rect x="390" y="675" width="270" height="205" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="390" y="697" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="412" y="715" font-size="24" fill="#F2F7FF" font-weight="650">Resolve project</text>
+<text x="412" y="750" font-size="18" fill="#B8C8DC" font-weight="400">Project name / path / cwd</text>
+<text x="412" y="774" font-size="18" fill="#B8C8DC" font-weight="400">Registry → two index paths</text>
+<text x="412" y="798" font-size="18" fill="#B8C8DC" font-weight="400">Unknown eligible repo?</text>
+<text x="412" y="822" font-size="18" fill="#B8C8DC" font-weight="400">Start indexing; retry later.</text>
+<text x="412" y="860" font-size="15" fill="#5BDAC5" font-weight="600">MCP uses semcode/registry.py</text>
+<rect x="720" y="595" width="300" height="160" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="720" y="617" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="742" y="635" font-size="24" fill="#F2F7FF" font-weight="650">Text retrieval</text>
+<text x="742" y="670" font-size="18" fill="#B8C8DC" font-weight="400">Query embedding → text store</text>
+<text x="742" y="694" font-size="18" fill="#B8C8DC" font-weight="400">Synonyms, names, descriptions</text>
+<text x="742" y="735" font-size="15" fill="#5BDAC5" font-weight="600">137M · retrieve top 15</text>
+<rect x="720" y="800" width="300" height="160" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="720" y="822" width="4" height="30" rx="2" fill="#AD9AFF"/>
+<text x="742" y="840" font-size="24" fill="#F2F7FF" font-weight="650">Code retrieval</text>
+<text x="742" y="875" font-size="18" fill="#B8C8DC" font-weight="400">Query embedding → code store</text>
+<text x="742" y="899" font-size="18" fill="#B8C8DC" font-weight="400">Algorithm and syntax patterns</text>
+<text x="742" y="940" font-size="15" fill="#AD9AFF" font-weight="600">7B · retrieve top 15</text>
+<rect x="1080" y="675" width="270" height="205" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1080" y="697" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="1102" y="715" font-size="24" fill="#F2F7FF" font-weight="650">Weighted RRF</text>
+<text x="1102" y="750" font-size="18" fill="#B8C8DC" font-weight="400">Merge ranked candidates</text>
+<text x="1102" y="774" font-size="18" fill="#B8C8DC" font-weight="400">Deduplicate source chunks¹</text>
+<text x="1102" y="798" font-size="18" fill="#B8C8DC" font-weight="400">Stable tie-breaking</text>
+<text x="1102" y="822" font-size="18" fill="#B8C8DC" font-weight="400">Keep max(10, requested N)</text>
+<text x="1102" y="860" font-size="15" fill="#5BDAC5" font-weight="600">Σ weight / (k + rank)</text>
+<rect x="1420" y="675" width="250" height="205" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1420" y="697" width="4" height="30" rx="2" fill="#AD9AFF"/>
+<text x="1442" y="715" font-size="24" fill="#F2F7FF" font-weight="650">Local LLM judge</text>
+<text x="1442" y="750" font-size="18" fill="#B8C8DC" font-weight="400">Optional: rerank=true</text>
+<text x="1442" y="774" font-size="18" fill="#B8C8DC" font-weight="400">Score snippet relevance</text>
+<text x="1442" y="798" font-size="18" fill="#B8C8DC" font-weight="400">Reorder + explain</text>
+<text x="1442" y="860" font-size="15" fill="#AD9AFF" font-weight="600">LM Studio chat model</text>
+<rect x="1730" y="675" width="210" height="205" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1730" y="697" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="1752" y="715" font-size="24" fill="#F2F7FF" font-weight="650">Source evidence</text>
+<text x="1752" y="750" font-size="18" fill="#B8C8DC" font-weight="400">Top N code snippets</text>
+<text x="1752" y="774" font-size="18" fill="#B8C8DC" font-weight="400">Paths + line ranges</text>
+<text x="1752" y="798" font-size="18" fill="#B8C8DC" font-weight="400">Ranks and scores</text>
+<text x="1752" y="822" font-size="18" fill="#B8C8DC" font-weight="400">MCP source links</text>
+<text x="1752" y="860" font-size="15" fill="#5BDAC5" font-weight="600">Default N = 5; max 15</text>
+<path d="M330 777 H390" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)"/>
+<path d="M660 777 H690 V675 H720" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)"/>
+<path d="M690 777 V880 H720" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)"/>
+<path d="M1215 490 V528 H870 V595" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)" stroke-dasharray="9 9"/>
+<text x="915" y="553" font-size="16" fill="#91A6BF" font-weight="400">indexed memory</text>
+<path d="M1020 675 H1045 V733 H1080" fill="none" stroke="#5BDAC5" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a5BDAC5)"/>
+<path d="M1020 880 H1045 V826 H1080" fill="none" stroke="#AD9AFF" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aAD9AFF)"/>
+<path d="M1350 777 H1420" fill="none" stroke="#AD9AFF" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aAD9AFF)" stroke-dasharray="9 9"/>
+<path d="M1670 777 H1730" fill="none" stroke="#AD9AFF" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aAD9AFF)" stroke-dasharray="9 9"/>
+<path d="M1215 675 V610 H1835 V675" fill="none" stroke="#5BDAC5" stroke-width="10" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a5BDAC5)"/>
+<text x="1340" y="595" font-size="16" fill="#5BDAC5" font-weight="600">DEFAULT: FUSED RANKING → SOURCE EVIDENCE</text>
+<text x="1090" y="990" font-size="16" fill="#91A6BF" font-weight="600">PARALLEL AT QUERY TIME</text>
+<text x="1090" y="925" font-size="18" fill="#5BDAC5" font-weight="600">Broader candidate coverage</text>
+<text x="1430" y="925" font-size="17" fill="#AD9AFF" font-weight="600">Extra relevance assessment</text>
+<text x="60" y="960" font-size="17" fill="#91A6BF" font-weight="400">¹ MCP fuses by file + line range; the CLI currently fuses by file.</text>
+<text x="60" y="988" font-size="17" fill="#91A6BF" font-weight="400">Saved RRF parameters: k = 5, text = 1.5, code = 0.5. Arrow widths do not encode these weights.</text>
+<text x="60" y="1050" font-size="18" fill="#FFC778" font-weight="700">03  MEASURE, LEARN &amp; OPERATE</text>
+<rect x="60" y="1080" width="390" height="190" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="60" y="1102" width="4" height="30" rx="2" fill="#FFC778"/>
+<text x="82" y="1120" font-size="24" fill="#F2F7FF" font-weight="650">Telemetry → training examples</text>
+<text x="82" y="1155" font-size="18" fill="#B8C8DC" font-weight="400">Queries + candidate snippets logged</text>
+<text x="82" y="1179" font-size="18" fill="#B8C8DC" font-weight="400">Confirmed selection → positive example</text>
+<text x="82" y="1203" font-size="18" fill="#B8C8DC" font-weight="400">Top distractors → hard negatives</text>
+<text x="82" y="1250" font-size="15" fill="#FFC778" font-weight="600">telemetry/collector.py · JSONL logs</text>
+<rect x="510" y="1080" width="360" height="190" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="510" y="1102" width="4" height="30" rx="2" fill="#AD9AFF"/>
+<text x="532" y="1120" font-size="24" fill="#F2F7FF" font-weight="650">Prototype training</text>
+<text x="532" y="1155" font-size="18" fill="#B8C8DC" font-weight="400">Triplets → margin-ranking training</text>
+<text x="532" y="1179" font-size="18" fill="#B8C8DC" font-weight="400">Neural reranker checkpoint</text>
+<text x="532" y="1203" font-size="18" fill="#B8C8DC" font-weight="400">Not wired into production search</text>
+<text x="532" y="1250" font-size="15" fill="#AD9AFF" font-weight="600">training/train_cross_encoder.py</text>
+<rect x="930" y="1080" width="470" height="190" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="930" y="1102" width="4" height="30" rx="2" fill="#FFC778"/>
+<text x="952" y="1120" font-size="24" fill="#F2F7FF" font-weight="650">Evaluation → tuned fusion</text>
+<text x="952" y="1155" font-size="18" fill="#B8C8DC" font-weight="400">Curated + synthetic / AST-inversion cases</text>
+<text x="952" y="1179" font-size="18" fill="#B8C8DC" font-weight="400">Hit@K, MRR, margins and latency</text>
+<text x="952" y="1203" font-size="18" fill="#B8C8DC" font-weight="400">Grid search → optimal_params.json</text>
+<text x="952" y="1250" font-size="15" fill="#FFC778" font-weight="600">benchmarks/ · run_evaluation_pipeline.ps1</text>
+<rect x="1460" y="1080" width="480" height="190" rx="18" fill="#142337" stroke="#31465E"/>
+<rect x="1460" y="1102" width="4" height="30" rx="2" fill="#5BDAC5"/>
+<text x="1482" y="1120" font-size="24" fill="#F2F7FF" font-weight="650">Runtime &amp; integration support</text>
+<text x="1482" y="1155" font-size="18" fill="#B8C8DC" font-weight="400">Credential Manager → child-only API key</text>
+<text x="1482" y="1179" font-size="18" fill="#B8C8DC" font-weight="400">LM Studio hosts embeddings + optional LLM</text>
+<text x="1482" y="1203" font-size="18" fill="#B8C8DC" font-weight="400">Installer configures agent MCP / guidance</text>
+<text x="1482" y="1227" font-size="18" fill="#B8C8DC" font-weight="400">Doctor, tests, security + agent harnesses</text>
+<text x="1482" y="1250" font-size="15" fill="#5BDAC5" font-weight="600">creds.py · grepai_runner.py · integrations/</text>
+<path d="M450 1170 H510" fill="none" stroke="#AD9AFF" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aAD9AFF)" stroke-dasharray="9 9"/>
+<path d="M1835 880 V1030 H30 V1170 H60" fill="none" stroke="#7389A3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a7389A3)" stroke-dasharray="9 9"/>
+<text x="560" y="1055" font-size="16" fill="#91A6BF" font-weight="400">results / explicit feedback</text>
+<path d="M1165 1080 V1020 H1375 V855 H1350" fill="none" stroke="#FFC778" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#aFFC778)" stroke-dasharray="9 9"/>
+<rect x="60" y="1320" width="1880" height="112" rx="18" fill="#18302F"/>
+<text x="86" y="1360" font-size="17" fill="#5BDAC5" font-weight="700">WHERE THE VALUE ACCUMULATES</text>
+<text x="86" y="1400" font-size="29" fill="#F2F7FF" font-weight="600">Clean source → complementary semantic signals → fused ranking → inspectable code evidence</text>
+<text x="60" y="1475" font-size="16" fill="#91A6BF" font-weight="400">Implementation basis: semcode/{indexer,sync,registry,pipeline,auto_index,grepai_runner,creds}.py · mcp_server.py · hybrid_search.py</text>
+<text x="60" y="1504" font-size="16" fill="#91A6BF" font-weight="400">Plus telemetry/, benchmarks/, training/ and integrations/. Architecture view • 13 Sep 2026 • Built on grepai by Yoan Bernabeu and contributors.</text>
+</g></svg>

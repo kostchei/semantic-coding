@@ -29,6 +29,13 @@ def install_instructions():
         USER_HOME / ".gemini" / "GEMINI.md",
     ]
 
+    # The managed block was renamed grepai-hybrid -> semcode; strip a block still
+    # fenced with the old markers so a rename doesn't leave two copies behind.
+    legacy_marker_begin = "<!-- grepai-hybrid:begin -->"
+    legacy_marker_end = "<!-- grepai-hybrid:end -->"
+    marker_begin = "<!-- semcode:begin -->"
+    marker_end = "<!-- semcode:end -->"
+
     for t in targets:
         t.parent.mkdir(parents=True, exist_ok=True)
         content = ""
@@ -36,8 +43,10 @@ def install_instructions():
             content = t.read_text(encoding="utf-8")
             backup_file(t)
 
-        marker_begin = "<!-- grepai-hybrid:begin -->"
-        marker_end = "<!-- grepai-hybrid:end -->"
+        if legacy_marker_begin in content and legacy_marker_end in content:
+            idx_start = content.find(legacy_marker_begin)
+            idx_end = content.find(legacy_marker_end) + len(legacy_marker_end)
+            content = content[:idx_start].rstrip() + content[idx_end:].lstrip()
 
         if marker_begin in content and marker_end in content:
             idx_start = content.find(marker_begin)
@@ -58,26 +67,32 @@ def install_claude_json():
         backup_file(path)
         data = json.loads(path.read_text(encoding="utf-8"))
 
-    # Deduplicate: Remove project-level grepai-hybrid if present
+    # Deduplicate: Remove project-level entries (current and pre-rename name) if present
     projects = data.get("projects", {})
     for proj_key, proj_data in list(projects.items()):
         if "semantic_coding" in proj_key.lower():
-            if "mcpServers" in proj_data and "grepai-hybrid" in proj_data["mcpServers"]:
-                del proj_data["mcpServers"]["grepai-hybrid"]
-                print(f"Removed duplicate project-level grepai-hybrid from {proj_key}")
+            for stale_name in ("semcode", "grepai-hybrid"):
+                if "mcpServers" in proj_data and stale_name in proj_data["mcpServers"]:
+                    del proj_data["mcpServers"][stale_name]
+                    print(f"Removed duplicate project-level {stale_name} from {proj_key}")
 
     # Ensure user-level registration
     if "mcpServers" not in data:
         data["mcpServers"] = {}
 
+    # Rename migration: drop the pre-rename user-level entry so it isn't left dangling
+    if "grepai-hybrid" in data["mcpServers"]:
+        del data["mcpServers"]["grepai-hybrid"]
+        print(f"Removed stale user-level grepai-hybrid registration from {path}")
+
     mcp_script = str(REPO_ROOT / "mcp_server.py")
-    data["mcpServers"]["grepai-hybrid"] = {
+    data["mcpServers"]["semcode"] = {
         "command": sys.executable,
         "args": [mcp_script]
     }
 
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"Verified global grepai-hybrid in {path}")
+    print(f"Verified global semcode in {path}")
 
 
 def install_claude_settings():
@@ -126,27 +141,33 @@ def install_antigravity():
     if "mcpServers" not in data:
         data["mcpServers"] = {}
 
+    # Rename migration: drop the pre-rename entry so it isn't left dangling
+    if "grepai-hybrid" in data["mcpServers"]:
+        del data["mcpServers"]["grepai-hybrid"]
+        print(f"Removed stale grepai-hybrid registration from {cfg_path}")
+
     mcp_script = str(REPO_ROOT / "mcp_server.py")
-    data["mcpServers"]["grepai-hybrid"] = {
+    data["mcpServers"]["semcode"] = {
         "command": sys.executable,
         "args": [mcp_script]
     }
     cfg_path.write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
-    print(f"Registered grepai-hybrid in {cfg_path}")
+    print(f"Registered semcode in {cfg_path}")
 
-    # 2. Delete stale descriptor
-    stale_dir = USER_HOME / ".gemini" / "antigravity" / "mcp" / "grepai-hybrid"
-    if stale_dir.is_dir():
-        shutil.rmtree(stale_dir, ignore_errors=True)
-        print(f"Deleted stale descriptor: {stale_dir}")
+    # 2. Delete stale descriptors (old pre-mcp_config.json format, and the pre-rename name)
+    for stale_name in ("semcode", "grepai-hybrid"):
+        stale_dir = USER_HOME / ".gemini" / "antigravity" / "mcp" / stale_name
+        if stale_dir.is_dir():
+            shutil.rmtree(stale_dir, ignore_errors=True)
+            print(f"Deleted stale descriptor: {stale_dir}")
 
 
 def install_skills():
     skill_src = REPO_ROOT / "integrations" / "skill" / "SKILL.md"
 
     targets = [
-        USER_HOME / ".gemini" / "config" / "skills" / "grepai-hybrid" / "SKILL.md",
-        USER_HOME / ".codex" / "skills" / "grepai-hybrid" / "SKILL.md",
+        USER_HOME / ".gemini" / "config" / "skills" / "semcode" / "SKILL.md",
+        USER_HOME / ".codex" / "skills" / "semcode" / "SKILL.md",
     ]
 
     for t in targets:
@@ -154,9 +175,18 @@ def install_skills():
         shutil.copy2(skill_src, t)
         print(f"Installed skill: {t}")
 
+    # Rename migration: remove the pre-rename skill folders so agents don't see both
+    for stale_dir in (
+        USER_HOME / ".gemini" / "config" / "skills" / "grepai-hybrid",
+        USER_HOME / ".codex" / "skills" / "grepai-hybrid",
+    ):
+        if stale_dir.is_dir():
+            shutil.rmtree(stale_dir, ignore_errors=True)
+            print(f"Removed stale skill folder: {stale_dir}")
+
 
 def main():
-    print("Installing grepai-hybrid integrations...")
+    print("Installing semcode integrations...")
     install_instructions()
     install_claude_json()
     install_claude_settings()

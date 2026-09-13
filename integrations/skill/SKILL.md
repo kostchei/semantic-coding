@@ -1,9 +1,9 @@
 ---
-name: grepai-hybrid
+name: semcode
 description: Perform deep semantic code search across indexed projects combining 137M text embeddings (synonyms) and 7B code embeddings (algorithmic logic) via Reciprocal Rank Fusion.
 ---
 
-# grepai-hybrid Semantic Search Skill
+# semcode Semantic Search Skill
 
 Use this skill whenever you need to find where functions, algorithms, security seams, or business concepts are implemented in the codebase.
 

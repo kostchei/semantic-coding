@@ -5,7 +5,7 @@ Reviewed 2026-09-13. This is a useful retrieval prototype with benchmark fixture
 ## Confirmed and addressed
 
 - Claude: the historical report records the expired OAuth error; the installed CLI currently reports `loggedIn: false`. Print mode does not categorically require an API key. The new `run_agent_harness.ps1` checks authentication before running and explains login/setup-token recovery without storing credentials.
-- Codex: `codex mcp get grepai_hybrid --json` confirms the enabled server. The historical report records shell-first exploration. Registration exposes tools; it does not mandate their use. The new harness explicitly supplies the MCP server and project, requests hybrid retrieval before exploration, and rejects runs without recorded MCP usage. This is an instructed retrieval experiment, distinct from measuring unprompted tool adoption.
+- Codex: `codex mcp get semcode --json` confirms the enabled server. The historical report records shell-first exploration. Registration exposes tools; it does not mandate their use. The new harness explicitly supplies the MCP server and project, requests hybrid retrieval before exploration, and rejects runs without recorded MCP usage. This is an instructed retrieval experiment, distinct from measuring unprompted tool adoption.
 - Retrieval errors and timeouts now surface as failures instead of empty matches. Unknown explicit projects fail instead of silently falling back. Path matching observes directory boundaries and prefers nested projects; explicit index pairs take precedence.
 - MCP documentation now states that omitted project selection uses the **server** working directory. MCP does not implicitly receive the client working directory. Requests above ten results are no longer silently capped at ten (supported range 1–15).
 - Fusion ties have a deterministic order. Hybrid benchmark metrics respect the requested result limit. Dry-run reports no longer replace computed metrics with fabricated high scores.
@@ -38,7 +38,7 @@ testing found and fixed two additional integration failures:
   protocol operation.
 - Codex CLI 0.147.0 could not use the configured `gpt-6-astra` model. The local CLI
   was updated to 0.154.0. The next run exposed missing headless tool approval;
-  the harness now approves only `grepai_hybrid.search_codebase` for that invocation.
+  the harness now approves only `semcode.search_codebase` for that invocation.
   A full live ORAC run then called MCP, read a returned file, and completed successfully.
   *Note:* This was an **instructed** run where the harness prompt explicitly instructed
   the agent to call `search_codebase` with a restricted toolset on an already-indexed

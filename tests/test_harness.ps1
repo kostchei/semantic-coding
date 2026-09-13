@@ -11,18 +11,18 @@ $errorsPath = 'fixture-only'
 $agentExit = 0
 $cases = @(
     @{Agent='codex'; Pass=$true; Events=@(
-        '{"type":"item.completed","item":{"type":"mcp_tool_call","server":"grepai_hybrid","tool":"search_codebase","status":"completed","result":{}}}',
+        '{"type":"item.completed","item":{"type":"mcp_tool_call","server":"semcode","tool":"search_codebase","status":"completed","result":{}}}',
         '{"type":"turn.completed"}')},
     @{Agent='codex'; Pass=$false; Events=@('{"type":"turn.completed"}')},
     @{Agent='codex'; Pass=$false; Events=@(
-        '{"type":"item.completed","item":{"type":"mcp_tool_call","server":"grepai_hybrid","tool":"search_codebase","status":"failed","error":"offline"}}',
+        '{"type":"item.completed","item":{"type":"mcp_tool_call","server":"semcode","tool":"search_codebase","status":"failed","error":"offline"}}',
         '{"type":"turn.completed"}')},
     @{Agent='claude'; Pass=$true; Events=@(
-        '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__grepai_hybrid__search_codebase"}]}}',
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__semcode__search_codebase"}]}}',
         '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"results"}]}}',
         '{"type":"result","subtype":"success","is_error":false}')},
     @{Agent='claude'; Pass=$false; Events=@(
-        '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__grepai_hybrid__search_codebase"}]}}',
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__semcode__search_codebase"}]}}',
         '{"type":"result","subtype":"success","is_error":false}')},
     @{Agent='claude'; Pass=$false; Events=@(
         '{"type":"result","subtype":"error_during_execution","is_error":true}')}

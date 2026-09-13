@@ -1,4 +1,4 @@
-"""Incremental synchronization for registered grepai-hybrid projects."""
+"""Incremental synchronization for registered semcode projects."""
 
 import argparse
 from datetime import datetime
@@ -85,7 +85,7 @@ def sync_all(force: bool = False, watch: bool = False, interval_seconds: int = 3
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Incrementally synchronize grepai-hybrid projects")
+    parser = argparse.ArgumentParser(description="Incrementally synchronize semcode projects")
     parser.add_argument("--project", "-p", type=str, help="Specific project to sync")
     parser.add_argument("--all", "-a", action="store_true", help="Sync all registered projects")
     parser.add_argument("--force", "-f", action="store_true", help="Force re-index even if no files changed")

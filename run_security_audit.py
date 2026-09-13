@@ -67,7 +67,7 @@ def run_audit_suite(limit: int = 5, verbose: bool = True) -> List[Dict[str, Any]
     results_summary = []
 
     print("=" * 80)
-    print("      grepai-hybrid Security & Invariant Code Audit Runner")
+    print("        semcode Security & Invariant Code Audit Runner")
     print("         Target Codebases: ash-rpg (TSX/Node) & ORAC (Python)")
     print("=" * 80)
 

@@ -130,21 +130,30 @@ Semantic_Coding/
 
 ### Step 1: Start LM Studio Server
 1. Open **LM Studio**.
-2. Load your embedding model (e.g. `nomic-embed-text` or your 7B code model).
+2. Load **both** embedding models side-by-side so the comparative benchmark can query each in turn:
+   - The lightweight text model, e.g. `nomic-embed-text` (`text-embedding-nomic-embed-text-v1.5`).
+   - The 7B code model, e.g. `nomic-embed-code`.
+   - On a 24 GB GPU both fit comfortably at once (see [Section 2](#2-hardware-allocation-on-24-gb-vram)); if VRAM is constrained, load/unload each in turn between runs instead.
 3. Start the **Local Server** on default port `1234` (`http://127.0.0.1:1234`).
-4. Note the exact model name shown in the server tab.
+4. Note the exact model names shown in the server tab — you'll pass both to `run_benchmark.ps1` in Step 3.
 
 ### Step 2: Verify Connectivity & Model Dimension
 In PowerShell:
 ```powershell
-# Verify server is online and list models
+# Verify server is online and list all loaded models (both text and code embedders should appear)
 Invoke-RestMethod -Uri "http://127.0.0.1:1234/v1/models"
 
-# Check output vector dimensions
+# Check output vector dimensions for the text embedding model
 (Invoke-RestMethod -Uri "http://127.0.0.1:1234/v1/embeddings" `
   -Method Post `
   -ContentType "application/json" `
-  -Body '{"model": "YOUR_MODEL_NAME", "input": ["test"]}').data[0].embedding.Count
+  -Body '{"model": "text-embedding-nomic-embed-text-v1.5", "input": ["test"]}').data[0].embedding.Count
+
+# Check output vector dimensions for the code embedding model
+(Invoke-RestMethod -Uri "http://127.0.0.1:1234/v1/embeddings" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"model": "nomic-embed-code", "input": ["test"]}').data[0].embedding.Count
 ```
 
 ### Step 3: Run the Benchmark
@@ -272,15 +281,15 @@ The hybrid retrieval engine seamlessly integrates with all primary daily driver 
 
 This installer automatically configures:
 1. **Claude Code:**
-   - Registers `grepai-hybrid` in `~/.claude.json` (`mcpServers`).
+   - Registers `semcode` in `~/.claude.json` (`mcpServers`).
    - Injects managed prompt hooks (`~/.claude/hooks/prompt_context.py`) for automatic query context injection on `UserPromptSubmit` and `SessionStart`.
    - Adds fenced instructions in `~/.claude/CLAUDE.md` directing Claude to prioritize `search_codebase` before falling back to grep/find.
 2. **OpenAI Codex:**
-   - Appends `[mcp_servers.grepai_hybrid]` to `~/.codex/config.toml`.
-   - Adds managed guidance in `~/.codex/AGENTS.md`.
+   - Adds managed guidance in `~/.codex/AGENTS.md` and installs the skill to `~/.codex/skills/semcode/SKILL.md`.
+   - > **Not yet automated:** the installer does not register the MCP server in `~/.codex/config.toml`. Register it manually (`codex mcp add semcode -- <python> <repo>/mcp_server.py`) or via `-c mcp_servers.semcode....` overrides as `run_agent_harness.ps1` does, until this is added.
 3. **Google Antigravity:**
-   - Deploys `~/.gemini/antigravity/mcp/grepai-hybrid/search_codebase.json`.
-   - Deploys `.gemini/skills/grepai-hybrid/SKILL.md` and managed instruction block.
+   - Registers `semcode` in `~/.gemini/antigravity/mcp_config.json` and removes any stale pre-`mcp_config.json` descriptor.
+   - Deploys `~/.gemini/config/skills/semcode/SKILL.md` and managed instruction block.
 
 ### Unprompted Agent Verification Harness
 Verify that agents autonomously choose hybrid retrieval without manual prompting:
@@ -300,7 +309,7 @@ powershell -ExecutionPolicy Bypass -File tests\test_harness.ps1
 This repository enforces a strict **Zero-Plaintext-Secret** invariant:
 - **No secrets in `config.yaml`:** All `.grepai/config.yaml` files have `api_key: ""` (empty).
 - **Sole Source of Truth:** Secrets are stored exclusively in the Windows Credential Manager generic credential vault:
-  - `grepai-hybrid/lmstudio` (User: `lmstudio`): LM Studio bearer token.
+  - `semcode/lmstudio` (User: `lmstudio`): LM Studio bearer token.
   - `SemanticCoding/ClaudeCodeOAuth`: Claude Code OAuth token.
 - **Child-Only Injection:** During indexing and searching, `semcode.grepai_runner` resolves the token from Windows Credential Manager and injects it strictly into the child process environment as `OPENAI_API_KEY`. Secrets are never passed via CLI flags, logged to disk, or committed to git.
 
@@ -347,7 +356,7 @@ To instantly verify system health, credential storage, LM Studio connectivity, w
 The doctor performs 18 automated diagnostic checks and reports pass/fail with explicit remediation instructions if any component is degraded:
 - Python version & `mcp` / `semcode` import sanity
 - `grepai.exe` binary accessibility & version
-- Windows Credential Manager `grepai-hybrid/lmstudio` target & non-empty token
+- Windows Credential Manager `semcode/lmstudio` target & non-empty token
 - LM Studio API reachability & models list (`http://127.0.0.1:1234/v1/models`)
 - LM Studio embeddings endpoint test call
 - `workspaces/registry.json` schema validation & corruption check

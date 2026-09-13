@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude Code integration hooks for grepai-hybrid.
+Claude Code integration hooks for semcode.
 Supports UserPromptSubmit (injecting relevant semantic code context)
 and SessionStart (displaying project index status and freshness).
 """
@@ -50,7 +50,7 @@ def handle_user_prompt_submit(data: dict) -> dict:
             return {}
 
         # Format compact additional context (under ~1.5k tokens)
-        lines = [f"[grepai-hybrid context for '{prompt}' in {project_name}]:"]
+        lines = [f"[semcode context for '{prompt}' in {project_name}]:"]
         for idx, h in enumerate(hits, 1):
             fp = h.get("absolute_path") or h.get("file_path")
             lines.append(f"{idx}. {fp}:L{h.get('start_line')}-{h.get('end_line')} (RRF {h.get('rrf_score', 0):.3f})")
@@ -63,7 +63,7 @@ def handle_user_prompt_submit(data: dict) -> dict:
 
     except Exception as exc:
         # If project is registered but search failed, output the error loudly
-        return {"additionalContext": f"[grepai-hybrid error: {exc}]"}
+        return {"additionalContext": f"[semcode error: {exc}]"}
 
 
 def handle_session_start(data: dict) -> dict:
@@ -76,7 +76,7 @@ def handle_session_start(data: dict) -> dict:
         file_count = pinfo.get("file_count", 0)
         return {
             "additionalContext": (
-                f"[grepai-hybrid: Project '{project_name}' registered ({file_count} files, "
+                f"[semcode: Project '{project_name}' registered ({file_count} files, "
                 f"indexed: {indexed_at}). Use search_codebase for semantic queries.]"
             )
         }
@@ -85,7 +85,7 @@ def handle_session_start(data: dict) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="grepai Claude Code Hook")
+    parser = argparse.ArgumentParser(description="semcode Claude Code Hook")
     parser.add_argument("--event", choices=["UserPromptSubmit", "SessionStart"], default="UserPromptSubmit")
     args = parser.parse_args()
 

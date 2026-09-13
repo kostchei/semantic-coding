@@ -1,4 +1,4 @@
-"""Windows Credential Manager single-source reader and writer for grepai and agent harnesses."""
+"""Windows Credential Manager single-source reader and writer for semcode and agent harnesses."""
 
 import argparse
 import ctypes
@@ -8,8 +8,9 @@ import os
 import sys
 from typing import Optional
 
-TARGET_LMSTUDIO = "grepai-hybrid/lmstudio"
-TARGET_LMSTUDIO_LEGACY = "PraetorSilica/LMStudioDev"
+TARGET_LMSTUDIO = "semcode/lmstudio"
+TARGET_LMSTUDIO_LEGACY = "grepai-hybrid/lmstudio"
+TARGET_LMSTUDIO_LEGACY_V0 = "PraetorSilica/LMStudioDev"
 TARGET_CLAUDE = "SemanticCoding/ClaudeCodeOAuth"
 
 
@@ -87,7 +88,7 @@ def read_credential(target: str) -> Optional[str]:
         dll.CredFree(pointer)
 
 
-def store_credential(target: str, token: str, user_name: str = "grepai") -> None:
+def store_credential(target: str, token: str, user_name: str = "semcode") -> None:
     """Store a generic credential in Windows Credential Manager."""
     if not token or any(c.isspace() for c in token):
         raise ValueError("Expected a non-empty token without whitespace")
@@ -125,12 +126,15 @@ def get_lmstudio_token() -> str:
     if token:
         return token
 
-    # Auto-migration fallback for existing installation:
-    # If legacy PraetorSilica/LMStudioDev is present, migrate it automatically to grepai-hybrid/lmstudio
-    legacy_token = read_credential(TARGET_LMSTUDIO_LEGACY)
-    if legacy_token:
-        store_credential(TARGET_LMSTUDIO, legacy_token, user_name="lmstudio")
-        return legacy_token
+    # Auto-migration fallback for existing installations: the vault target was
+    # renamed grepai-hybrid/lmstudio -> semcode/lmstudio (and, before that,
+    # PraetorSilica/LMStudioDev -> grepai-hybrid/lmstudio). Walk the chain and
+    # migrate forward to the current target so a rename never orphans a stored token.
+    for legacy_target in (TARGET_LMSTUDIO_LEGACY, TARGET_LMSTUDIO_LEGACY_V0):
+        legacy_token = read_credential(legacy_target)
+        if legacy_token:
+            store_credential(TARGET_LMSTUDIO, legacy_token, user_name="lmstudio")
+            return legacy_token
 
     raise CredentialMissing(
         f"Credential '{TARGET_LMSTUDIO}' not found in Windows Credential Manager.\n"
@@ -157,7 +161,7 @@ def main():
     subparsers.add_parser("status", help="Show presence of all managed credentials")
 
     delete_parser = subparsers.add_parser("delete", help="Delete a stored credential")
-    delete_parser.add_argument("target_type", choices=["lmstudio", "legacy-lmstudio", "claude"])
+    delete_parser.add_argument("target_type", choices=["lmstudio", "legacy-lmstudio", "legacy-lmstudio-v0", "claude"])
 
     args = parser.parse_args()
 
@@ -184,15 +188,18 @@ def main():
     elif args.subcommand == "status":
         lm = read_credential(TARGET_LMSTUDIO)
         lm_leg = read_credential(TARGET_LMSTUDIO_LEGACY)
+        lm_leg_v0 = read_credential(TARGET_LMSTUDIO_LEGACY_V0)
         cl = read_credential(TARGET_CLAUDE)
         print(f"{TARGET_LMSTUDIO}: {'present' if lm else 'absent'}")
         print(f"{TARGET_LMSTUDIO_LEGACY}: {'present' if lm_leg else 'absent'}")
+        print(f"{TARGET_LMSTUDIO_LEGACY_V0}: {'present' if lm_leg_v0 else 'absent'}")
         print(f"{TARGET_CLAUDE}: {'present' if cl else 'absent'}")
 
     elif args.subcommand == "delete":
         target = {
             "lmstudio": TARGET_LMSTUDIO,
             "legacy-lmstudio": TARGET_LMSTUDIO_LEGACY,
+            "legacy-lmstudio-v0": TARGET_LMSTUDIO_LEGACY_V0,
             "claude": TARGET_CLAUDE,
         }[args.target_type]
         deleted = delete_credential(target)

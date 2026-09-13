@@ -1,10 +1,10 @@
 # Antigravity Unprompted Verification Protocol
 
-This manual verification protocol tests organic, unprompted adoption of grepai-hybrid in the Antigravity IDE agent.
+This manual verification protocol tests organic, unprompted adoption of semcode in the Antigravity IDE agent.
 
 ## Prerequisites
 1. Run `powershell -File doctor.ps1` to ensure all 18 checks are `[PASS]`.
-2. Ensure Antigravity has `grepai-hybrid` loaded (configured via `~/.gemini/antigravity/mcp_config.json` and `~/.gemini/GEMINI.md`).
+2. Ensure Antigravity has `semcode` loaded (configured via `~/.gemini/antigravity/mcp_config.json` and `~/.gemini/GEMINI.md`).
 
 ## Verification Scenarios
 

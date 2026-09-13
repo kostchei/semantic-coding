@@ -41,7 +41,7 @@ if ($Agent -eq 'claude' -and -not $storedClaudeCredential -and -not ($env:ANTHRO
 if ($Mode -eq 'Instructed') {
     $request = @"
 Perform read-only exploration of the project at $ProjectPath.
-Before exploratory shell searches, call the grepai_hybrid MCP tool search_codebase
+Before exploratory shell searches, call the semcode MCP tool search_codebase
 with project set to the absolute path above and a semantic query relevant to the request.
 If the tool fails or is unavailable, report the failure explicitly; do not claim hybrid retrieval succeeded.
 After successful retrieval, use file reads or shell commands to verify the returned source evidence.
@@ -51,7 +51,7 @@ Request:
 $Prompt
 "@
 } else {
-    # Unprompted mode: natural user prompt with no mention of grepai or search tools
+    # Unprompted mode: natural user prompt with no mention of semcode or search tools
     $request = $Prompt
 }
 
@@ -60,7 +60,7 @@ $OutputDir = (Resolve-Path -LiteralPath $OutputDir).Path
 $runId = "$Agent-$Mode-$([guid]::NewGuid().ToString('N'))"
 $eventsPath = Join-Path $OutputDir "$runId.jsonl"
 $errorsPath = Join-Path $OutputDir "$runId.stderr.log"
-$mcpConfig = @{mcpServers = @{grepai_hybrid = @{command = $python; args = @($server)}}} | ConvertTo-Json -Depth 5 -Compress
+$mcpConfig = @{mcpServers = @{semcode = @{command = $python; args = @($server)}}} | ConvertTo-Json -Depth 5 -Compress
 
 Push-Location -LiteralPath $ProjectPath
 try {
@@ -70,13 +70,13 @@ try {
         $argsValue = ConvertTo-Json -InputObject @($server) -Compress
         $codexArgs = @(
             "exec", "--sandbox", "read-only", "--json",
-            "-c", "mcp_servers.grepai_hybrid.command=$commandValue",
-            "-c", "mcp_servers.grepai_hybrid.args=$argsValue",
-            "-c", "mcp_servers.grepai_hybrid.enabled=true",
-            "-c", 'mcp_servers.grepai_hybrid.tools.search_codebase.approval_mode="approve"'
+            "-c", "mcp_servers.semcode.command=$commandValue",
+            "-c", "mcp_servers.semcode.args=$argsValue",
+            "-c", "mcp_servers.semcode.enabled=true",
+            "-c", 'mcp_servers.semcode.tools.search_codebase.approval_mode="approve"'
         )
         if ($Mode -eq 'Instructed') {
-            $codexArgs += @("-c", 'mcp_servers.grepai_hybrid.required=true')
+            $codexArgs += @("-c", 'mcp_servers.semcode.required=true')
         }
         $codexArgs += @("-")
 
@@ -86,7 +86,7 @@ try {
         if ($Mode -eq 'Instructed') {
             $claudeExtraArgs = @(
                 "--mcp-config", $mcpConfig, "--strict-mcp-config",
-                "--tools", "Read", "--allowedTools", "Read,mcp__grepai_hybrid__search_codebase"
+                "--tools", "Read", "--allowedTools", "Read,mcp__semcode__search_codebase"
             )
         }
         $request | & $python $credentialHelper run --cli $cli -- -p --output-format stream-json --verbose `
@@ -105,12 +105,12 @@ foreach ($line in (Get-Content -LiteralPath $eventsPath)) {
     if ($Agent -eq 'codex') {
         if ($event.type -eq 'turn.completed') { $completed = $true }
         if ($event.type -eq 'item.completed' -and $event.item.type -eq 'mcp_tool_call' -and
-            $event.item.server -eq 'grepai_hybrid' -and $event.item.tool -eq 'search_codebase' -and
+            $event.item.server -eq 'semcode' -and $event.item.tool -eq 'search_codebase' -and
             $event.item.status -eq 'completed' -and -not $event.item.error -and -not $event.item.result.isError) { $usedHybrid = $true }
         if ($event.type -eq 'turn.failed' -or $event.type -eq 'error') { $agentFailed = $true }
     } else {
         foreach ($block in $event.message.content) {
-            if ($block.type -eq 'tool_use' -and $block.name -eq 'mcp__grepai_hybrid__search_codebase') { $hybridCalls[$block.id] = $true }
+            if ($block.type -eq 'tool_use' -and $block.name -eq 'mcp__semcode__search_codebase') { $hybridCalls[$block.id] = $true }
             if ($block.type -eq 'tool_result' -and $hybridCalls.ContainsKey([string]$block.tool_use_id) -and -not $block.is_error) { $usedHybrid = $true }
             if ($block.type -eq 'tool_result' -and $block.is_error) { $agentFailed = $true }
         }

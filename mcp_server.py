@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-grepai-hybrid MCP Server
+semcode MCP Server
 Exposes the Two-Stage Hybrid Search Engine (137M Text + 7B Code + Local Re-Rank)
 as a standard Model Context Protocol (MCP) server for Antigravity, Claude Code, and Codex.
 """
@@ -20,7 +20,7 @@ import semcode.pipeline as pipeline
 
 # Initialize FastMCP Server with prompt instructions
 mcp = FastMCP(
-    "grepai-hybrid",
+    "semcode",
     instructions=(
         "For conceptual 'where/how is X implemented' questions in an indexed project, "
         "call search_codebase before Grep/Glob. Use Grep only for exact identifiers."

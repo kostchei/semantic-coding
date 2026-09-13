@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-grepai-hybrid: Multi-Model Reciprocal Rank Fusion (RRF) & Re-Ranking Engine
+semcode: Multi-Model Reciprocal Rank Fusion (RRF) & Re-Ranking Engine
 Combines 137M Text (nomic-embed-text) and 7B Code (nomic-embed-code) with
 optional Stage 2 local LLM / Cross-Encoder re-ranking for maximum recall and precision.
 """
@@ -281,7 +281,7 @@ def resolve_project_dirs(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="grepai Multi-Model Hybrid Search & Re-Ranking")
+    parser = argparse.ArgumentParser(description="semcode Multi-Model Hybrid Search & Re-Ranking")
     parser.add_argument("query", type=str, help="Search query")
     parser.add_argument("--project", "-p", type=str, help="Registered project name (e.g. praetor_silica)")
     parser.add_argument("--project-path", type=str, help="Path to project directory")
