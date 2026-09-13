@@ -7,6 +7,9 @@ A complete benchmarking framework for evaluating semantic code retrieval effecti
 > 
 > We extend our sincere gratitude to Yoan and the `grepai` contributors for creating a fast, privacy-first developer utility with native Tree-sitter AST extraction, multi-language support, and flexible local embedding backends. This repository is an independent empirical study designed to test embedding model characteristics and hardware trade-offs within the `grepai` architecture.
 
+> [!TIP]
+> **Complete Technical Reference & Architecture Overview:** See [**SYSTEM_STATE.md**](SYSTEM_STATE.md) for the complete file manifest, system architecture diagrams, optimal hyperparameters, and command reference.
+
 ---
 
 ## 1. Architectural Context: Text vs. Code Embeddings
