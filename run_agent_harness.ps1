@@ -12,6 +12,12 @@ if (-not (Test-Path -LiteralPath $ProjectPath -PathType Container)) { throw 'Pro
 $cli = (Get-Command $Agent -ErrorAction Stop).Source
 $python = (Get-Command python -ErrorAction Stop).Source
 $server = Join-Path $PSScriptRoot 'mcp_server.py'
+$credentialHelper = Join-Path $PSScriptRoot 'secure_credentials.py'
+$storedClaudeCredential = $false
+if ($Agent -eq 'claude') {
+    & $python $credentialHelper status
+    $storedClaudeCredential = $LASTEXITCODE -eq 0
+}
 
 # Resolve the project before spending an agent turn. A typo must not search another repo.
 & $python -c 'import sys; sys.path.insert(0, sys.argv[1]); import hybrid_search; hybrid_search.resolve_project_dirs(project_path=sys.argv[2])' $PSScriptRoot $ProjectPath
@@ -19,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Project lookup failed. Index the project with 
 & $python -c 'import mcp.server.fastmcp'
 if ($LASTEXITCODE -ne 0) { throw 'Install the MCP dependency: python -m pip install -r requirements.txt' }
 
-if ($Agent -eq 'claude' -and -not ($env:ANTHROPIC_API_KEY -or $env:ANTHROPIC_AUTH_TOKEN -or $env:CLAUDE_CODE_OAUTH_TOKEN -or $env:CLAUDE_CODE_USE_BEDROCK -or $env:CLAUDE_CODE_USE_VERTEX -or $env:CLAUDE_CODE_USE_FOUNDRY)) {
+if ($Agent -eq 'claude' -and -not $storedClaudeCredential -and -not ($env:ANTHROPIC_API_KEY -or $env:ANTHROPIC_AUTH_TOKEN -or $env:CLAUDE_CODE_OAUTH_TOKEN -or $env:CLAUDE_CODE_USE_BEDROCK -or $env:CLAUDE_CODE_USE_VERTEX -or $env:CLAUDE_CODE_USE_FOUNDRY)) {
     $authText = & $cli auth status
     $authExit = $LASTEXITCODE
     $auth = $null
@@ -58,10 +64,11 @@ try {
             -c "mcp_servers.grepai_hybrid.command=$commandValue" `
             -c "mcp_servers.grepai_hybrid.args=$argsValue" `
             -c 'mcp_servers.grepai_hybrid.enabled=true' `
+            -c 'mcp_servers.grepai_hybrid.tools.search_codebase.approval_mode="approve"' `
             -c 'mcp_servers.grepai_hybrid.required=true' - 2> $errorsPath |
             Set-Content -LiteralPath $eventsPath -Encoding utf8
     } else {
-        $request | & $cli -p --output-format stream-json --verbose `
+        $request | & $python $credentialHelper run --cli $cli -- -p --output-format stream-json --verbose `
             --mcp-config $mcpConfig --strict-mcp-config `
             --tools Read --allowedTools 'Read,mcp__grepai_hybrid__search_codebase' `
             --permission-mode dontAsk 2> $errorsPath |
@@ -94,6 +101,6 @@ foreach ($line in (Get-Content -LiteralPath $eventsPath)) {
 }
 Write-Host "Events: $eventsPath"
 Write-Host "Diagnostics: $errorsPath"
-if ($agentExit -ne 0 -or $agentFailed -or -not $completed) { throw 'Agent failed or did not finish. Inspect diagnostics; expired Claude credentials require login or a replacement setup-token/API key.' }
+if ($agentExit -ne 0 -or $agentFailed -or -not $completed) { throw "$Agent CLI failed or did not finish. Inspect the event and diagnostic files above for the specific error." }
 if (-not $usedHybrid) { throw 'Harness failed: no successful hybrid MCP usage was observed. Registration alone does not enforce tool selection.' }
 Write-Host 'Harness passed: hybrid MCP usage observed.'

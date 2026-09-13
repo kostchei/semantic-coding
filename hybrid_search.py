@@ -74,7 +74,8 @@ def run_single_search(bin_path: str, repo_dir: str, query: str, limit: int = 15)
     cmd = [bin_path, "search", query, "-j", "-n", str(limit)]
     try:
         proc = subprocess.run(
-            cmd, cwd=repo_dir, capture_output=True, text=True, encoding="utf-8", check=False, timeout=60
+            cmd, cwd=repo_dir, stdin=subprocess.DEVNULL, capture_output=True,
+            text=True, encoding="utf-8", check=False, timeout=60
         )
         if proc.returncode != 0:
             raise RuntimeError(f"grepai search failed in {repo_dir} (exit {proc.returncode}); check the index and embedding service")

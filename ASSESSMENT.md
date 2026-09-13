@@ -26,3 +26,39 @@ Run `python -m unittest discover -s tests -v` for backend failures, timeout hand
 Validation completed: six Python regression tests, six structured-event harness checks (`.\tests\test_harness.ps1`), benchmark dry-run, Python compilation, and PowerShell parsing passed. An actual MCP stdio client initialized the server, discovered the tool, and verified that an unknown project returns an MCP tool error. No complete live agent/index retrieval run was performed.
 
 Sources: [Claude authentication](https://code.claude.com/docs/en/authentication), [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+## Follow-up live validation
+
+The first checks above were insufficient to establish live-agent success. Actual
+testing found and fixed two additional integration failures:
+
+- MCP search subprocesses inherited the protocol stdin. `grepai search` waited for
+  input and timed out while ordinary CLI search succeeded. They now receive
+  `DEVNULL`; a real stdio regression test verifies child EOF and continuing MCP
+  protocol operation.
+- Codex CLI 0.147.0 could not use the configured `gpt-6-astra` model. The local CLI
+  was updated to 0.154.0. The next run exposed missing headless tool approval;
+  the harness now approves only `grepai_hybrid.search_codebase` for that invocation.
+  A full live ORAC run then called MCP, read a returned file, and completed successfully.
+
+Claude Desktop was running its own Claude Code executable (2.1.266); the npm CLI
+used by the harness had no credentials. Secure setup now stores its inference
+token in Windows Credential Manager and supplies it to child CLI processes only.
+A live Claude ORAC run authenticated, called MCP, read `src/orac/broker.py`, and
+completed successfully. The earlier ordinary login's newly issued access/refresh
+credentials were also secured in Credential Manager and removed from its plaintext
+cache. This did not log out or restart Desktop.
+After clearing that cache, a second live Claude run on ash-rpg also passed using
+only the Credential Manager token. All 11 Python tests and six harness event checks
+passed after the follow-up fixes.
+
+Antigravity's documented CLI retrieval route was tested against ORAC and ash-rpg.
+Both projects returned identical top-three paths and RRF scores to the pre-fix
+commit. The shared MCP route also passed a live query after the stdin fix. The
+Antigravity IDE's conversational agent itself was not driven through a complete
+new task, so this establishes integration compatibility, not full IDE behavior.
+Already-running MCP server processes must restart to load changed Python code.
+
+Credential tests cover actual Windows store round-trip with a unique disposable
+test target, child-only injection, explicit credential precedence, and suppression
+of setup-token output. No real credentials or raw agent transcripts are committed.

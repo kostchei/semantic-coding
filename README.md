@@ -250,6 +250,26 @@ or supply `ANTHROPIC_API_KEY` through your secret manager/environment. Do not co
 Authentication status is a preflight check, not proof a credential is still valid at the API.
 See [ASSESSMENT.md](ASSESSMENT.md) for confirmed fixes and remaining limitations.
 
+For Windows testing, store OAuth in Windows Credential Manager instead of a file
+or persistent environment variable. In an interactive PowerShell terminal:
+
+```powershell
+python secure_credentials.py setup --cli "$env:APPDATA\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"
+python secure_credentials.py status
+```
+
+Use the path to your native Claude CLI executable if installed elsewhere. The
+setup helper runs `claude setup-token`, suppresses token output, and stores it at
+`SemanticCoding/ClaudeCodeOAuth` for the current Windows user. Alternatively,
+`python secure_credentials.py store` accepts an existing token with hidden terminal
+input. The harness reads this store and injects the token only into its child CLI
+environment; it never puts it in command arguments or logs. Expired/revoked tokens
+must be replaced through setup. Desktop and CLI authentication can differ.
+
+The Codex harness grants invocation approval only to this repository's
+`search_codebase` tool, retaining the read-only shell sandbox. Use a CLI version
+compatible with your configured model; live testing here used Codex 0.154.0.
+
 ### OpenAI Codex Desktop App
 In `~/.codex/config.toml`:
 ```toml
@@ -278,6 +298,5 @@ python hybrid_search.py "verify LM Studio setup" --project praetor_silica -n 3
 cd E:\praetor_silica
 python e:\Semantic_Coding\hybrid_search.py "platform lock file verification"
 ```
-
 
 
