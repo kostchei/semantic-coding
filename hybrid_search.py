@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-grepai-hybrid: Multi-Model Reciprocal Rank Fusion (RRF) Search Engine
-Combines 137M Text (nomic-embed-text) and 7B Code (nomic-embed-code)
-for maximum semantic recall and precision.
+grepai-hybrid: Multi-Model Reciprocal Rank Fusion (RRF) & Re-Ranking Engine
+Combines 137M Text (nomic-embed-text) and 7B Code (nomic-embed-code) with
+optional Stage 2 local LLM / Cross-Encoder re-ranking for maximum recall and precision.
 """
 
 import argparse
@@ -10,12 +10,53 @@ import json
 import os
 import subprocess
 import sys
+import urllib.request
+import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
-def find_binary(custom_path: str = None) -> str:
+def get_stored_credential(target_name: str = "PraetorSilica/LMStudioDev") -> str:
+    """Safely retrieves API token from Windows Credential Store if on Windows."""
+    if os.name != "nt":
+        return os.environ.get("LM_API_TOKEN", "")
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class CREDENTIAL(ctypes.Structure):
+            _fields_ = [
+                ('Flags', wintypes.DWORD),
+                ('Type', wintypes.DWORD),
+                ('TargetName', wintypes.LPWSTR),
+                ('Comment', wintypes.LPWSTR),
+                ('LastWritten', wintypes.FILETIME),
+                ('CredentialBlobSize', wintypes.DWORD),
+                ('CredentialBlob', ctypes.POINTER(ctypes.c_byte)),
+                ('Persist', wintypes.DWORD),
+                ('AttributeCount', wintypes.DWORD),
+                ('Attributes', ctypes.c_void_p),
+                ('TargetAlias', wintypes.LPWSTR),
+                ('UserName', wintypes.LPWSTR),
+            ]
+
+        pcred = ctypes.POINTER(CREDENTIAL)()
+        if ctypes.windll.advapi32.CredReadW(target_name, 1, 0, ctypes.byref(pcred)):
+            blob = ctypes.string_at(pcred.contents.CredentialBlob, pcred.contents.CredentialBlobSize)
+            ctypes.windll.advapi32.CredFree(pcred)
+            try:
+                return blob.decode('utf-16le').strip()
+            except UnicodeDecodeError:
+                return blob.decode('utf-8').strip()
+    except Exception:
+        pass
+
+    return os.environ.get("LM_API_TOKEN", "")
+
+
+def find_binary(custom_path: Optional[str] = None) -> str:
     if custom_path and os.path.isfile(custom_path):
         return custom_path
     script_dir = Path(__file__).resolve().parent
@@ -101,39 +142,162 @@ def reciprocal_rank_fusion(
             "rrf_score": rrf_score,
             "text_rank": t_rank,
             "code_rank": c_rank,
-            "content": chunk_info.get("content", "")
+            "content": chunk_info.get("content", ""),
+            "rerank_score": None,
+            "rerank_reason": None
         })
 
     scored_files.sort(key=lambda x: x["rrf_score"], reverse=True)
     return scored_files[:limit]
 
 
+def rerank_with_llm(
+    candidates: List[Dict[str, Any]],
+    query: str,
+    endpoint: str = "http://127.0.0.1:1234/v1",
+    model: Optional[str] = None,
+    token: Optional[str] = None,
+    timeout: int = 15
+) -> List[Dict[str, Any]]:
+    """
+    Stage 2 Re-Ranking: Evaluates candidate snippets with a local LLM in LM Studio.
+    Gracefully falls back to original order on timeout or failure.
+    """
+    if not candidates:
+        return candidates
+
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    # Auto-resolve chat model if not specified
+    if not model:
+        try:
+            req_models = urllib.request.Request(f"{endpoint}/models", headers=headers)
+            with urllib.request.urlopen(req_models, timeout=5) as resp:
+                models_data = json.loads(resp.read().decode("utf-8"))
+                for m in models_data.get("data", []):
+                    mid = m.get("id", "")
+                    if "embed" not in mid.lower():
+                        model = mid
+                        break
+        except Exception:
+            pass
+
+    if not model:
+        return candidates
+
+    candidate_prompts = []
+    for idx, c in enumerate(candidates, 1):
+        snippet = "\n".join(c.get("content", "").split("\n")[:12])
+        candidate_prompts.append(
+            f"--- Candidate [{idx}] ---\nFile: {c.get('file_path')} (Lines {c.get('start_line')}-{c.get('end_line')})\n{snippet}"
+        )
+
+    prompt = (
+        f"You are an expert code search ranking assistant.\n\n"
+        f"Search Query: \"{query}\"\n\n"
+        f"Evaluate which of the following candidates best and most directly implements or matches the query intent.\n\n"
+        f"{chr(10).join(candidate_prompts)}\n\n"
+        f"Respond ONLY with a JSON object in this exact schema without extra text:\n"
+        f"{{\n"
+        f'  "rankings": [\n'
+        f'    {{"candidate_id": 1, "relevance_score": 0.95, "reason": "concise explanation"}},\n'
+        f'    ...\n'
+        f'  ]\n'
+        f"}}"
+    )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are a code retrieval relevance judge. Output valid JSON only."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.0,
+        "max_tokens": 512
+    }
+
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(f"{endpoint}/chat/completions", headers=headers, data=data)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            res_json = json.loads(resp.read().decode("utf-8"))
+            content = res_json["choices"][0]["message"]["content"].strip()
+
+            # Clean markdown JSON block if present
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+
+            parsed = json.loads(content)
+            rankings = parsed.get("rankings", [])
+            rank_map = {r["candidate_id"]: r for r in rankings if "candidate_id" in r}
+
+            reranked = []
+            for idx, c in enumerate(candidates, 1):
+                item = dict(c)
+                if idx in rank_map:
+                    item["rerank_score"] = float(rank_map[idx].get("relevance_score", 0.0))
+                    item["rerank_reason"] = rank_map[idx].get("reason", "")
+                else:
+                    item["rerank_score"] = 0.0
+                reranked.append(item)
+
+            reranked.sort(key=lambda x: (x["rerank_score"] is not None, x["rerank_score"]), reverse=True)
+            return reranked
+
+    except Exception:
+        # Graceful fallback: return candidates unchanged
+        return candidates
+
+
 def main():
-    parser = argparse.ArgumentParser(description="grepai Multi-Model Hybrid Search (Text + Code RRF)")
+    parser = argparse.ArgumentParser(description="grepai Multi-Model Hybrid Search & Re-Ranking")
     parser.add_argument("query", type=str, help="Search query")
     parser.add_argument("--text-dir", type=str, default="repo-text", help="Directory indexed with 137M text model")
     parser.add_argument("--code-dir", type=str, default="repo-code", help="Directory indexed with 7B code model")
     parser.add_argument("--limit", "-n", type=int, default=5, help="Number of results to return (default: 5)")
     parser.add_argument("--json", "-j", action="store_true", help="Output results in JSON format")
     parser.add_argument("--k", type=int, default=15, help="RRF smoothing constant (default: 15)")
+    parser.add_argument("--rerank", action="store_true", help="Enable Stage 2 local LLM re-ranking")
+    parser.add_argument("--rerank-model", type=str, help="Model name for re-ranking in LM Studio")
+    parser.add_argument("--endpoint", type=str, default="http://127.0.0.1:1234/v1", help="LM Studio API endpoint")
+    parser.add_argument("--token", type=str, help="API token for LM Studio (auto-resolves from Windows Credential Store if omitted)")
     args = parser.parse_args()
 
     bin_path = find_binary()
+    token = args.token or get_stored_credential("PraetorSilica/LMStudioDev")
 
-    # Search both repositories in parallel
+    # Stage 1: Dual Dense Parallel Retrieval
     with ThreadPoolExecutor(max_workers=2) as executor:
         f_text = executor.submit(run_single_search, bin_path, args.text_dir, args.query, 15)
         f_code = executor.submit(run_single_search, bin_path, args.code_dir, args.query, 15)
         text_res = f_text.result()
         code_res = f_code.result()
 
-    fused = reciprocal_rank_fusion(text_res, code_res, k=args.k, limit=args.limit)
+    fused = reciprocal_rank_fusion(text_res, code_res, k=args.k, limit=10)
+
+    # Stage 2: Optional Local Re-ranking
+    if args.rerank:
+        fused = rerank_with_llm(
+            candidates=fused,
+            query=args.query,
+            endpoint=args.endpoint,
+            model=args.rerank_model,
+            token=token,
+            timeout=20
+        )
+
+    fused = fused[:args.limit]
 
     if args.json:
         print(json.dumps(fused, indent=2))
         return
 
-    print(f"\nHybrid Fused Search Results for: \"{args.query}\"\n" + "=" * 70)
+    mode_label = "Hybrid RRF + Local Re-Rank" if args.rerank else "Hybrid RRF (Text + Code)"
+    print(f"\n{mode_label} Results for: \"{args.query}\"\n" + "=" * 75)
     for idx, item in enumerate(fused, 1):
         fp = item["file_path"]
         lines = f"L{item['start_line']}-{item['end_line']}"
@@ -142,12 +306,19 @@ def main():
         c_rank = f"#{item['code_rank']}" if item["code_rank"] else "miss"
 
         print(f"[{idx}] {fp}:{lines}")
-        print(f"    RRF Score: {score:.4f} | Text Rank: {t_rank} | Code Rank: {c_rank}")
+        score_info = f"    RRF Score: {score:.4f} | Text Rank: {t_rank} | Code Rank: {c_rank}"
+        if item.get("rerank_score") is not None:
+            score_info += f" | Re-Rank Score: {item['rerank_score']:.2f}"
+        print(score_info)
+
+        if item.get("rerank_reason"):
+            print(f"    Rationale: {item['rerank_reason']}")
+
         snippet = item["content"].split("\n")[:3]
         for s in snippet:
             if s.strip():
                 print(f"    | {s.strip()[:80]}")
-        print("-" * 70)
+        print("-" * 75)
 
 
 if __name__ == "__main__":
