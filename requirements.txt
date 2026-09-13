@@ -1,0 +1,3 @@
+# Runtime for mcp_server.py; core retrieval and benchmarks use the standard library.
+mcp>=1.0,<2
+# Optional neural training separately requires torch.

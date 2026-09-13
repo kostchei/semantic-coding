@@ -229,6 +229,27 @@ The hybrid retrieval engine is exposed as a standard Model Context Protocol (Fas
 claude mcp add --scope user grepai-hybrid -- python e:\Semantic_Coding\mcp_server.py
 ```
 
+Install the server runtime with `python -m pip install -r requirements.txt`.
+For MCP calls, always pass `project` as a registered name or absolute source path.
+Omitting it uses the MCP server's working directory, which may differ from the client's project.
+
+For reproducible read-only CLI exploration:
+
+```powershell
+.\run_agent_harness.ps1 -Agent codex -ProjectPath E:\ORAC -Prompt "Find privilege enforcement"
+.\run_agent_harness.ps1 -Agent claude -ProjectPath E:\ORAC -Prompt "Find privilege enforcement"
+```
+
+The harness explicitly requests hybrid MCP retrieval and checks the structured event trace.
+It fails if retrieval is skipped or the agent fails. Logs are stored in ignored `harness-results/`.
+Registration alone does not guarantee autonomous tool selection.
+
+Claude can use a valid saved login (`claude auth login`). For unattended execution,
+run `claude setup-token` and supply its output through `CLAUDE_CODE_OAUTH_TOKEN`,
+or supply `ANTHROPIC_API_KEY` through your secret manager/environment. Do not commit tokens.
+Authentication status is a preflight check, not proof a credential is still valid at the API.
+See [ASSESSMENT.md](ASSESSMENT.md) for confirmed fixes and remaining limitations.
+
 ### OpenAI Codex Desktop App
 In `~/.codex/config.toml`:
 ```toml
@@ -257,7 +278,6 @@ python hybrid_search.py "verify LM Studio setup" --project praetor_silica -n 3
 cd E:\praetor_silica
 python e:\Semantic_Coding\hybrid_search.py "platform lock file verification"
 ```
-
 
 
 

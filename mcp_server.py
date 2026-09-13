@@ -22,7 +22,7 @@ import hybrid_search
 # Initialize FastMCP Server
 mcp = FastMCP(
     "grepai-hybrid",
-    dependencies=["mcp", "numpy", "torch"]
+    dependencies=["mcp"]
 )
 
 # Workspace directories
@@ -45,7 +45,7 @@ def search_codebase(
 
     Args:
         query: The search query (e.g. 'platform lock file verification' or 'throttle client queries').
-        project: Optional registered project name (e.g. 'praetor_silica') or path. Auto-resolves from caller CWD if omitted.
+        project: Registered project name or absolute source path. Always pass this in multi-project clients; omitted values use the server process CWD, not the client's CWD.
         limit: Max number of top code snippets to return (default: 5).
         rerank: Set to True to enable Stage 2 local LLM cross-encoder re-ranking for strict false-positive filtering.
         feedback_file: Optional file path that was confirmed relevant, to log training triplets for fine-tuning.
@@ -53,6 +53,8 @@ def search_codebase(
     Returns:
         Formatted markdown containing top matching code chunks, line numbers, scores, and relevance reasoning.
     """
+    if not 1 <= limit <= 15:
+        raise ValueError("limit must be between 1 and 15")
     text_dir, code_dir, resolved_proj = hybrid_search.resolve_project_dirs(project=project)
     bin_path = hybrid_search.find_binary()
     token = hybrid_search.get_stored_credential("PraetorSilica/LMStudioDev")
@@ -80,7 +82,7 @@ def search_codebase(
         code_res = f_code.result()
 
     fused = hybrid_search.reciprocal_rank_fusion(
-        text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=10
+        text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=max(10, limit)
     )
 
     # Stage 2: Local Re-ranking if requested
@@ -126,7 +128,7 @@ def search_codebase(
         if r.get("rerank_reason"):
             meta += f"\n- **Reasoning:** {r['rerank_reason']}"
 
-        snippet = f"\n```go\n{r.get('content', '').strip()}\n```\n"
+        snippet = f"\n```\n{r.get('content', '').strip()}\n```\n"
         output.append(f"{header}{meta}\n{snippet}")
 
     return "\n".join(output)

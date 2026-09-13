@@ -29,7 +29,7 @@ This benchmark evaluates how AI agent harnesses discover, reason over, and execu
    - **OpenAI Codex:** Incurred massive context-stuffing overhead (**48,148 tokens** on `ash-rpg`) due to recursive `Get-ChildItem` and regex grep scans across hundreds of files.
 
 4. **Harness Failure Modes:**
-   - **Claude Code CLI (v2.1.233):** Completely failed execution in non-interactive mode (`claude -p`) due to an expired OAuth web session (`Failed to authenticate: OAuth session expired and could not be refreshed`). Headless workflows require persistent long-lived API tokens rather than ephemeral web session tokens.
+   - **Claude Code CLI (v2.1.233):** Failed execution in non-interactive mode (`claude -p`) due to an expired OAuth session (`Failed to authenticate: OAuth session expired and could not be refreshed`). A valid saved login can support local print mode. For unattended runs, use `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, an API key, or configured provider credentials. This was an authentication failure, not a retrieval result.
    - **Codex CLI (v0.147.0):** Despite having `mcp_servers.grepai_hybrid` registered in `~/.codex/config.toml`, Codex defaulted to PowerShell execution primitives (`powershell.exe -Command ...`) rather than utilizing MCP tools autonomously for exploratory codebase navigation.
 
 ---

@@ -74,18 +74,20 @@ def run_single_search(bin_path: str, repo_dir: str, query: str, limit: int = 15)
     cmd = [bin_path, "search", query, "-j", "-n", str(limit)]
     try:
         proc = subprocess.run(
-            cmd, cwd=repo_dir, capture_output=True, text=True, encoding="utf-8", check=False
+            cmd, cwd=repo_dir, capture_output=True, text=True, encoding="utf-8", check=False, timeout=60
         )
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return []
+        if proc.returncode != 0:
+            raise RuntimeError(f"grepai search failed in {repo_dir} (exit {proc.returncode}); check the index and embedding service")
+        if not proc.stdout.strip():
+            raise ValueError("grepai returned empty output instead of JSON")
         data = json.loads(proc.stdout)
         if isinstance(data, list):
             return data
-        elif isinstance(data, dict) and "results" in data:
+        elif isinstance(data, dict) and isinstance(data.get("results"), list):
             return data["results"]
-        return []
-    except Exception:
-        return []
+        raise ValueError("grepai returned an unsupported result format")
+    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
+        raise RuntimeError(f"grepai search unavailable in {repo_dir}: {type(exc).__name__}") from exc
 
 
 def reciprocal_rank_fusion(
@@ -147,7 +149,7 @@ def reciprocal_rank_fusion(
             "rerank_reason": None
         })
 
-    scored_files.sort(key=lambda x: x["rrf_score"], reverse=True)
+    scored_files.sort(key=lambda x: (-x["rrf_score"], x["file_path"]))
     return scored_files[:limit]
 
 
@@ -270,8 +272,16 @@ def resolve_project_dirs(
         try:
             with open(registry_file, "r", encoding="utf-8-sig") as f:
                 registry = json.load(f)
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Cannot read project registry: {registry_file}") from exc
+
+    if text_dir is not None or code_dir is not None:
+        if not text_dir or not code_dir:
+            raise ValueError("Supply both text_dir and code_dir")
+        return text_dir, code_dir, "explicit"
+
+    # Prefer the most specific source root for nested projects.
+    registry = dict(sorted(registry.items(), key=lambda pair: len(pair[1].get("source_path", "")), reverse=True))
 
     # 1. Direct project name match
     if project and project in registry:
@@ -282,14 +292,19 @@ def resolve_project_dirs(
     if target_path:
         norm_target = os.path.abspath(target_path).lower()
         for pname, pinfo in registry.items():
-            sp = os.path.abspath(pinfo.get("source_path", "")).lower()
-            if sp and (sp == norm_target or norm_target.startswith(sp)):
+            if not pinfo.get("source_path"):
+                continue
+            sp = os.path.abspath(pinfo["source_path"]).lower()
+            if sp == norm_target or norm_target.startswith(sp.rstrip(os.sep) + os.sep):
                 return pinfo["text_dir"], pinfo["code_dir"], pname
+        raise ValueError(f"Project is not registered: {target_path}. Run index_project.ps1 first.")
 
     # 3. Auto-detect from caller's current working directory
     cwd = os.path.abspath(os.getcwd()).lower()
     for pname, pinfo in registry.items():
-        sp = os.path.abspath(pinfo.get("source_path", "")).lower()
+        if not pinfo.get("source_path"):
+            continue
+        sp = os.path.abspath(pinfo["source_path"]).lower()
         if sp and (cwd == sp or cwd.startswith(sp + os.sep)):
             return pinfo["text_dir"], pinfo["code_dir"], pname
 
@@ -318,6 +333,8 @@ def main():
     parser.add_argument("--feedback-selected", type=str, help="Mark a file as the positive selection to capture a training triplet")
     parser.add_argument("--no-telemetry", action="store_true", help="Disable interaction telemetry logging")
     args = parser.parse_args()
+    if not 1 <= args.limit <= 15:
+        parser.error("--limit must be between 1 and 15")
 
     bin_path = find_binary()
     token = args.token or get_stored_credential("PraetorSilica/LMStudioDev")
@@ -357,7 +374,7 @@ def main():
         text_res = f_text.result()
         code_res = f_code.result()
 
-    fused = reciprocal_rank_fusion(text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=10)
+    fused = reciprocal_rank_fusion(text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=max(10, args.limit))
 
     # Stage 2: Optional Local Re-ranking
     if args.rerank:

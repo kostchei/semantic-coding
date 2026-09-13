@@ -240,7 +240,8 @@ def evaluate_hybrid(
                 score += w_code / (k + files_code[fp])
             fused.append((fp, score))
 
-        fused.sort(key=lambda x: x[1], reverse=True)
+        fused.sort(key=lambda x: (-x[1], x[0]))
+        fused = fused[:limit]
 
         found_rank = None
         target_score = 0.0
@@ -402,11 +403,8 @@ def main():
         print("Running mock evaluation dry-run...")
         text_metrics = evaluate_directory(bin_path, "mock-text", cases, args.limit, dry_run=True)
         code_metrics = evaluate_directory(bin_path, "mock-code", cases, args.limit, dry_run=True)
-        code_metrics["hit_at_1"] = 0.92
-        code_metrics["mrr"] = 0.95
         if args.hybrid:
             hybrid_metrics = evaluate_hybrid(bin_path, "mock-text", "mock-code", cases, args.limit, dry_run=True)
-            hybrid_metrics["hit_at_3"] = 1.0
 
     print_comparison(text_metrics, code_metrics, hybrid_metrics)
 

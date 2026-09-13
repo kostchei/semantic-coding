@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-DEFAULT_TELEMETRY_LOG = Path("telemetry/interactions.jsonl")
-DEFAULT_TRIPLETS_FILE = Path("telemetry/triplets.jsonl")
+DEFAULT_TELEMETRY_LOG = Path(__file__).resolve().parent / "interactions.jsonl"
+DEFAULT_TRIPLETS_FILE = Path(__file__).resolve().parent / "triplets.jsonl"
 
 
 def log_interaction(
