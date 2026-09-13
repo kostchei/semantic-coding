@@ -7,7 +7,6 @@ Captures real query interactions, user/agent selections, and automatically extra
 
 import argparse
 import json
-import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -55,9 +54,17 @@ def log_interaction(
     # If a selected file was confirmed, extract triplets
     triplets_count = 0
     if selected_file:
-        norm_selected = selected_file.replace("\\", "/").lower()
-        positives = [c for c in candidates if norm_selected in c.get("file_path", "").replace("\\", "/").lower()]
-        negatives = [c for c in candidates if norm_selected not in c.get("file_path", "").replace("\\", "/").lower()]
+        def _norm(p: str) -> str:
+            return str(p).replace("\\", "/").lower().strip("/")
+
+        norm_sel = _norm(selected_file)
+
+        def _is_match(c_path: str) -> bool:
+            cand = _norm(c_path)
+            return cand == norm_sel or cand.endswith("/" + norm_sel) or norm_sel.endswith("/" + cand)
+
+        positives = [c for c in candidates if _is_match(c.get("file_path", ""))]
+        negatives = [c for c in candidates if not _is_match(c.get("file_path", ""))]
 
         if positives:
             pos_chunk = positives[0].get("content", "")

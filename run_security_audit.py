@@ -6,13 +6,12 @@ Executes 6 domain-adapted security review queries against the dual-vector hybrid
 and architectural seams are surfaced in the top results.
 """
 
-import os
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-import hybrid_search
+import semcode.pipeline as pipeline
 
 
 AUDIT_BENCHMARK_CASES = [
@@ -65,7 +64,6 @@ AUDIT_BENCHMARK_CASES = [
 
 
 def run_audit_suite(limit: int = 5, verbose: bool = True) -> List[Dict[str, Any]]:
-    bin_path = hybrid_search.find_binary()
     results_summary = []
 
     print("=" * 80)
@@ -82,21 +80,16 @@ def run_audit_suite(limit: int = 5, verbose: bool = True) -> List[Dict[str, Any]
         review_id = case["review_id"]
         expected_seams = case["expected_seams"]
 
-        text_dir, code_dir, resolved_proj = hybrid_search.resolve_project_dirs(project=proj_name)
-        
         t0 = time.perf_counter()
-        
-        # Stage 1: Dual Dense Retrieval
-        with hybrid_search.ThreadPoolExecutor(max_workers=2) as executor:
-            f_text = executor.submit(hybrid_search.run_single_search, bin_path, text_dir, query, 15)
-            f_code = executor.submit(hybrid_search.run_single_search, bin_path, code_dir, query, 15)
-            text_res = f_text.result()
-            code_res = f_code.result()
-
-        # Reciprocal Rank Fusion
-        fused = hybrid_search.reciprocal_rank_fusion(
-            text_res, code_res, k=5, weight_text=1.5, weight_code=0.5, limit=limit
+        res = pipeline.execute_hybrid_search(
+            query=query,
+            project=proj_name,
+            limit=limit,
+            k=5,
+            w_text=1.5,
+            w_code=0.5
         )
+        fused = res["results"]
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
         # Evaluate hit against expected seams

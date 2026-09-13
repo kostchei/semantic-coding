@@ -8,10 +8,6 @@ Evaluates combinations of RRF smoothing constant (k) and model skew weights
 import argparse
 import itertools
 import json
-import os
-import subprocess
-import sys
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -35,21 +31,9 @@ def prefetch_results(
         q = c["query"]
         exp = normalize_path(c["expected_file"])
 
-        # Fetch from text repo
-        cmd_text = [bin_path, "search", q, "-j", "-n", str(limit)]
-        p_text = subprocess.run(cmd_text, cwd=text_dir, capture_output=True, text=True, encoding="utf-8")
-        try:
-            res_text = json.loads(p_text.stdout) if p_text.stdout else []
-        except Exception:
-            res_text = []
-
-        # Fetch from code repo
-        cmd_code = [bin_path, "search", q, "-j", "-n", str(limit)]
-        p_code = subprocess.run(cmd_code, cwd=code_dir, capture_output=True, text=True, encoding="utf-8")
-        try:
-            res_code = json.loads(p_code.stdout) if p_code.stdout else []
-        except Exception:
-            res_code = []
+        from semcode.grepai_runner import run_grepai_search
+        res_text = run_grepai_search(text_dir, q, limit=limit, custom_binary=bin_path)
+        res_code = run_grepai_search(code_dir, q, limit=limit, custom_binary=bin_path)
 
         # Extract file ranks
         files_text = {}
@@ -105,7 +89,7 @@ def evaluate_grid(
                 score += w_code / (k + files_code[fp])
             scored.append((fp, score))
 
-        scored.sort(key=lambda x: x[1], reverse=True)
+        scored.sort(key=lambda x: (-x[1], str(x[0]).lower()))
 
         rank = None
         for idx, (fp, score) in enumerate(scored):
@@ -188,7 +172,7 @@ def main():
         print(f"{idx:<5} | {r['k']:<4} | {r['weight_text']:<6.1f} | {r['weight_code']:<6.1f} | {r['hit_at_1']*100:>6.1f}% | {r['hit_at_3']*100:>6.1f}% | {r['mrr']:>7.3f} | {r['composite_score']:>7.3f}")
     print("=" * 78)
 
-    print(f"\n[OPTIMAL CONFIGURATION FOUND]")
+    print("\n[OPTIMAL CONFIGURATION FOUND]")
     print(f"  RRF Constant (k):       {best_config['k']}")
     print(f"  Weight Text (w_text):   {best_config['weight_text']}")
     print(f"  Weight Code (w_code):   {best_config['weight_code']}")

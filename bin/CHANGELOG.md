@@ -1,0 +1,779 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.37.0] - 2026-09-10
+
+### Added
+
+- **Per-Request Project Root for MCP Tools**: Project-scoped MCP tools (`grepai_search`, `grepai_trace_callers`, `grepai_trace_callees`, `grepai_trace_graph`, `grepai_refs_readers`, `grepai_refs_writers`, `grepai_refs_graph`, `grepai_index_status`) accept an optional `root` parameter with an absolute project path; configuration, vector store and symbol index are loaded from that path instead of the server startup project, enabling per-launch project detection across multiple projects without restarting `mcp-serve` (#305) - @wasup-yash
+  - Specifying both `workspace` and `root` in one request is rejected; an explicit `root` also takes precedence over a server started with `--workspace`
+  - The server now advertises tool capabilities during MCP initialization (`server.WithToolCapabilities(true)`), which some MCP clients require before discovering server features/roots
+
+### Fixed
+
+- **Non-Reproducible Search Ranking**: Results that scored exactly the same came back in a different order on every search over an unchanged index, because callers assembled them by ranging over a Go map and `sort.Slice` is not stable. Since callers truncate to a limit after sorting, this also changed **which** results were returned, not just their order. Score ties now break on the chunk ID, which is unique within a store, so an unchanged index returns the same ranking every time (#303) - @MaxFreedomPollard
+- **Idle GOB Index Rewrites**: Vector and symbol GOB stores now persist only when modified, eliminating full-index rewrites every 30 seconds when idle (#298) - @jeremyakers
+- **Atomic GOB Replacement**: Failed cross-platform index replacement now preserves the previous index instead of falling back to a remove-then-rename window that could leave no index after interruption - @jeremyakers
+- **Concurrent Watcher Snapshot Loss**: Foreground, background, and workspace watchers now enforce one lifetime writer per canonical project root, while read-only search, MCP, and trace processes remain concurrent - @jeremyakers
+- **Missing-Index Reader Overwrites**: Read-only vector and symbol GOB stores that load before an index exists now close cleanly without replacing an index created later, while real pre-load mutations and direct first persists are preserved - @jeremyakers
+- **Worktree Seed Races**: Worktree auto-initialization now copies complete vector and symbol seed indexes under the project writer lock before exposing the copied configuration - @jeremyakers
+- **GOB Mutable Aliases**: Vector GOB stores now own deep copies of mutable inputs, and symbol lookups return detached slices, preventing caller mutations from changing clean in-memory snapshots - @jeremyakers
+- **Worktree Auto-Init Rollback**: Seed and configuration files are now atomically published from synced temporary files, failed copy stages remove partial destinations, and only a parseable configuration counts as initialization completion - @jeremyakers
+- **Incomplete or Stale File Watching**: File, worktree, and workspace watchers now fail closed when a directory watch cannot be registered, fsnotify closes or reports an error, or the internal event queue cannot keep up. Fatal coverage shutdown withdraws daemon readiness and synchronously aborts event handling without flushing potentially untrustworthy derived state; the CLI then exits immediately and lets the OS reclaim watcher descriptors. Library callers that remain alive after receiving a fatal error may call `Close` to release the backend explicitly. The next startup's full scan repairs the indexes. Ready markers are PID-validated, write failures stop startup, timed-out children are stopped and cleaned up, and stale PID cleanup removes the matching marker. On Linux, registration `ENOSPC` means the per-user inotify watch quota is exhausted, not that the filesystem is out of disk space (#304) - @jeremyakers
+  - **Behaviour change**: `grepai watch` now exits on a filesystem watch failure where it previously logged a warning and kept running. On a host whose inotify quota is exhausted, this surfaces as a startup error instead of a watcher that silently misses changes. The error names the affected path and, on Linux, explains the quota.
+
+### Dependencies
+
+- Bump `github.com/mark3labs/mcp-go` from 0.58.0 to 1.0.0 (#302)
+
+## [0.36.1] - 2026-09-01
+
+### Fixed
+
+- **Files Dropped From the Index on Atomic Writes**: An atomic write — write to a temp file, then rename it over the target — surfaces as `RENAME`/`REMOVE` on a path whose file is still on disk, and the watcher removed it from both the vector and symbol indexes, silently, until the next manual save or watcher restart (#295, closes #225 and #129) - @yoanbernabeu
+  - Editors and coding agents (Claude Code, Cursor) save this way, so the files being dropped were exactly the ones being actively worked on
+  - The same cause emptied the index wholesale on `git checkout` across a diverged branch, since git writes files by renaming over them — reproduced as `Files indexed: 0` on a 20-file repository
+  - The event is now re-qualified as a modification when the path still resolves to a regular file; genuine deletions are unaffected
+  - Credit to @Third-Thing, who identified this class of false removals independently in July
+- **Stale Symbols After Upgrade**: Pair each persisted symbol entry with the extractor version that produced it, so a release shipping improved symbol extraction re-processes unchanged files instead of leaving stale symbols in place until `.grepai/symbols.gob` is deleted by hand (#264) - @kryptt
+  - The first `grepai watch` after upgrading re-extracts symbols for every traced file once, then returns to normal incremental behaviour
+  - Symbol extraction only: the vector index is untouched and **no re-embedding occurs**, so there is no API cost and no reindexing to plan
+  - Existing `symbols.gob` files load unchanged, and remain readable if you downgrade
+
+### Changed
+
+- **Go Toolchain From `go.mod`**: The release and docs workflows now resolve the Go version from `go.mod` (`go-version-file`) instead of a hardcoded pin, so the toolchain can no longer drift from what the module actually requires (#293) - @yoanbernabeu
+- Building from source now requires Go 1.25.5 or later, up from 1.25.0 (#288). Installing a released binary is unaffected
+
+### Dependencies
+
+- Bump `github.com/mark3labs/mcp-go` from 0.45.0 to 0.58.0 (#288)
+- Bump `google.golang.org/grpc` from 1.82.1 to 1.83.2 (#289)
+- Bump `actions/setup-go` from 5 to 7 (#292), `actions/setup-node` from 6 to 7 (#290)
+
+## [0.36.0] - 2026-08-30
+
+### Added
+
+- **Vue SFC Support**: Process Vue single-file components for search and trace, with source remapping back to original line numbers (#157) - @mika76
+- **File-Level Deduplication**: Configurable `search.dedup` to collapse multiple chunks from the same file into a single result (#188) - @Don-Yin
+- **RPG CLI Commands**: `grepai rpg search`, `grepai rpg fetch` and `grepai rpg explore`, plus `--compact` structured output for `trace` and `refs`, bringing the CLI to parity with the MCP server (#240) - @teelicht
+- **Custom File Extensions**: New `chunking.custom_extensions` option to index file types outside the built-in list, for niche or polyglot codebases (#256) - @kryptt
+- **Configurable Embedder Timeout and Retries**: New `embedder.request_timeout_seconds` and `embedder.max_retries` for slow self-hosted endpoints; defaults are unchanged (60s, 5 attempts) (#257) - @kryptt
+- **Requesty Provider**: Add Requesty as a new embedding provider
+  - Requesty (`requesty`): Multi-provider gateway via `https://router.requesty.ai/v1` with OpenAI-compatible embeddings (`openai/text-embedding-3-small`, 1536 dims)
+  - API key resolved from `REQUESTY_API_KEY` (falling back to `OPENAI_API_KEY`)
+  - Integrated into the embedder factory (`NewFromConfig`), `grepai init` prompts, and shell completion (#268) - @Thibaultjaigu
+- **Opt Out of Worktree Discovery**: New `watch.discover_worktrees` option to stop `grepai watch` from auto-initializing and watching every linked git worktree (#270) - @rusel95
+- **C++ `.cxx` / `.hxx` Support**: Index and trace `.cxx` and `.hxx` files, which were previously skipped despite being advertised in the default config (#276) - @Third-Thing
+
+### Fixed
+
+- **Watcher Crash on Long Runs**: Add a mutex to the RPG graph, fixing the `concurrent map iteration and map write` crash that killed `grepai watch` after hours of use (#206, closes #279) - @drizzt
+- **Gitignore Root Match**: Fix `.gitignore` pattern `.*/` incorrectly matching the root directory and preventing all files from being indexed (#203, closes #202) - @pingtimeout
+- **Qdrant Search on Large Repos**: Raise the gRPC max message size to 64 MB and stop fetching unused vectors in `GetAllChunks`, fixing `ResourceExhausted` errors on hybrid search (#207) - @drizzt
+- **Windows Qdrant Collection Names**: Sanitize `\` and `:` in collection names derived from Windows paths (#201) - @AkosLukacs
+- **Corrupted Index Recovery**: Write `index.gob` atomically, and quarantine an already-truncated index to `index.gob.corrupt` instead of failing forever with `unexpected EOF` (#269) - @rusel95
+- **Postgres Embedding Cache Scoping**: Scope the content-hash cache by project and by embedder identity (provider/model/dimensions/endpoint), preventing cross-project and cross-model vector reuse (#252, closes #249 and #251) - @3em0
+- **OpenAI 300k Token Limit**: Detect the API's `maximum request size` error and recursively split the batch until it fits, instead of failing the whole indexing run (#226, closes #214) - @p1ng0o
+- **Workspace Document Scoping**: Scope `projectPrefixStore.ListDocuments` to the current project, fixing wildly inflated "files removed" counts and thousands of pointless store roundtrips on every workspace scan (#263) - @kryptt
+- **Agent Skill Accuracy**: Replace absolute "never use grep" instructions with a recall-safe combination, since semantic search returns a ranking rather than an exhaustive result set (#272) - @rusel95
+- **Nix Package Build**: Add `git` and `nodejs` to `nativeCheckInputs` in the flake, so the test phase no longer fails with `exec: "git": executable file not found in $PATH` (closes #244)
+
+### Performance
+
+- **Faster Watcher Startup**: Parallelize file-change detection and replace `filepath.Walk` with `WalkDir` in the watcher, cutting restart time on large repositories (#277) - @Slicit
+
+### Changed
+
+- **Go 1.25 Required to Build**: `qdrant/go-client` 1.19.0, `pgvector-go` 0.4.1 and `pgx/v5` 5.10.0 all require Go 1.25, so building grepai from source now needs Go 1.25 or later. Installing a released binary is unaffected. The CI matrix and `golangci-lint` (pinned to v2.13.2) were aligned accordingly (#284, #286, #287)
+
+### Dependencies
+
+- Bump `github.com/qdrant/go-client` from 1.17.1 to 1.19.0 (#253)
+- Bump `github.com/pgvector/pgvector-go` from 0.3.0 to 0.4.1 (#254)
+- Bump `github.com/jackc/pgx/v5` from 5.8.0 to 5.10.0 (#228)
+- Bump `github.com/fsnotify/fsnotify` from 1.9.0 to 1.10.1 (#238)
+- Bump `actions/checkout` from 6 to 7 (#267), `codecov/codecov-action` from 5 to 7 (#265), `actions/upload-pages-artifact` from 4 to 5 (#227), `actions/deploy-pages` from 4 to 5 (#208)
+
+## [0.35.0] - 2026-03-16
+
+### Added
+
+- **Shell Completion**: New `grepai completion [zsh|bash|fish|powershell]` command for shell autocompletion (#175) - @Greite
+  - Static completions with descriptions for `--provider`, `--backend`, `--mode` flags
+  - Dynamic completions for `--workspace` and `--project` flags (loaded from config)
+  - Positional argument completions for workspace subcommands (names, project names, directories)
+  - Installation instructions for Zsh (eval, Oh-My-Zsh plugin, manual fpath), Bash, Fish, PowerShell
+- **`.grepaiignore` Support**: New `.grepaiignore` file allows overriding `.gitignore` rules for grepai indexing. Supports negation patterns (`!`) to re-include files excluded by `.gitignore`, with directory-level precedence for nested files (#163) - @Greite
+- **Lua Fast-Mode**: Add fast-mode support for Lua language (#176) - @Logonz
+- **Stats Tracking**: Introduce privacy-first gains tracking feature (#162) - @hansipie
+
+### Fixed
+
+- **OpenAI Workspace Defaults**: Fix OpenAI workspace create defaults (#182) - @garitar
+- **OpenAI Init Model**: Fix OpenAI init model handling and config defaults (#181) - @garitar
+
+### Changed
+
+- **Trace Helpers**: Deduplicate workspace helpers, eliminate double scan, add error logging (#164) - @jugrajsingh
+- **RPG Encoder**: Rename RPGIndexer to RPGEncoder and extend multi-feature model (#149) - @tinker495
+
+### Documentation
+
+- **Quickstart**: Add agent integration step to quickstart (#167) - @sethbrasile
+
+### Dependencies
+
+- Bump `github.com/mark3labs/mcp-go` from 0.44.0 to 0.45.0 (#184) - @dependabot
+- Bump `github.com/qdrant/go-client` from 1.16.2 to 1.17.1 (#160) - @dependabot
+
+### CI
+
+- Bump `actions/upload-artifact` from 6 to 7 (#171) - @dependabot
+- Bump `goreleaser/goreleaser-action` from 6 to 7 (#159) - @dependabot
+
+## [0.34.0] - 2026-02-24
+
+### Added
+
+- **MCP Discovery Commands**: Add `grepai_list_workspaces` and `grepai_list_projects` MCP tools to expose relative paths for searching (#144) - @jeremyakers
+- **Bubble Tea TUI**: Add interactive TUI for watch, status, trace, init, and workspace commands (#143) - @tinker495
+
+### Fixed
+
+- **MCP Workspace Discovery Response**: `grepai_list_workspaces` now returns workspace-level entries only (without embedded project lists) (#144) - @jeremyakers
+- **MCP Startup Fallback**: `grepai mcp-serve` now starts without `--workspace` when global workspaces exist, allowing clients to pass `workspace` per tool call at runtime (#144) - @jeremyakers
+
+## [0.33.0] - 2026-02-22
+
+### Added
+
+- **F# Language Support for Trace**: Symbol extraction and call graph analysis now supports F# with Ionide tree-sitter grammar (#152) - @WillEhrendreich
+- **Search Path Filter**: New `--path` flag for `grepai search` to filter results by file path with backend pushdown (#141) - @jeremyakers
+
+### Fixed
+
+- **Worktree Deduplication**: Fix worktree dedup and multi-project chunk storage (#142) - @justinkatzman
+
+## [0.32.1] - 2026-02-19
+
+### Changed
+
+- **Dependencies**: Bump `github.com/mark3labs/mcp-go` from 0.43.2 to 0.44.0 (#145) - @dependabot
+
+## [0.32.0] - 2026-02-19
+
+### Added
+
+- **Synthetic & OpenRouter Providers**: Add Synthetic API and OpenRouter as new embedding providers (#106) - @Revaz-Goguadze
+  - Synthetic API (`synthetic`): Cloud embedding via `https://api.synthetic.new` with `nomic-embed-text-v1.5` (768 dims)
+  - OpenRouter (`openrouter`): Multi-provider gateway via `https://openrouter.ai/api/v1` with model selection (text-embedding-3-small, text-embedding-3-large, qwen3-embedding-8b)
+  - Embedder factory pattern (`NewFromConfig`/`NewFromWorkspaceConfig`) centralizing provider initialization across CLI and MCP server
+  - Interactive model selection for OpenRouter during `grepai init`
+  - `--model` flag for non-interactive OpenRouter configuration
+
+## [0.31.0] - 2026-02-13
+
+### Added
+
+- **RPG Semantic Graph Layer**: Add RPG semantic graph layer fully integrated into existing APIs (#110) - @tinker495
+- **Workspace Mode**: Add trace, symbol indexing, and watcher fixes for workspace mode (#121) - @jugrajsingh
+  - `grepai trace callers/callees/graph` now supports `--workspace` and `--project` flags for cross-project call graph analysis
+  - `grepai watch --workspace` now extracts symbols and builds per-project call graphs (stored in `.grepai/symbols.gob` per project)
+  - MCP trace tools (`grepai_trace_callers`, `grepai_trace_callees`, `grepai_trace_graph`) and `grepai_index_status` support workspace and project parameters
+  - Extracted `trace.SymbolStore` interface from `GOBSymbolStore` for extensibility
+- **Watch Optimization**: Reduce branch-switch reparsing with metadata and symbol hash cache (#123) - @tinker495
+
+### Fixed
+
+- **MCP Windsurf Compatibility**: Add titleFixWriter for Windsurf stdio compatibility (#104) - @cmdaltctr
+- **Update Command**: Fix cross-device link and newline output in `grepai update` (#124) - @hansipie
+- **GOB Store Directory Creation**: GOB stores create missing parent directories on persist (#136) - @tinker495
+- **Call Graph Quality**: Improve callgraph quality and GOB store resilience (#137) - @tinker495
+- **Call Graph Nodes**: Fix caller nodes missing from call graph for incoming edges
+- **Daemon Windows**: Use file-based stop signal on Windows (#140) - @tintop2k
+- **Watcher Event Routing**: Fixed workspace file events being silently dropped due to relative vs absolute path comparison
+
+## [0.30.0] - 2026-02-08
+
+### Added
+
+- **Multi-Worktree Watch and Daemon Support**: Worktree-aware daemon PID management and multi-worktree parallel watching via errgroup (#115) - @tinker495
+  - Worktree-specific PID/ready/log files in daemon package
+  - `discoverWorktreesForWatch()` for automatic linked worktree detection with auto-init
+  - `watchProject()` extracted for single-project watch loop
+  - Platform-specific liveness detection (pipe on Unix, poll on Windows)
+
+### Fixed
+
+- **Lock File Handle Leak**: Fix file handle leak in `WriteWorktreePIDFile` (defer close after lock) (#115) - @tinker495
+- **Deduplicate Watch Loop**: Remove duplicated no-worktree path to use `watchProject()` instead of inline copy (#115) - @tinker495
+
+## [0.29.0] - 2026-02-08
+
+### Added
+
+- **Git Worktree Detection and Auto-Init**: Automatically detect git worktrees and initialize grepai in the main worktree root (#114) - @tinker495
+- **GOB File Locking for Cross-Process Safety**: Add file locking to GOB store to prevent data corruption when multiple processes access the same index (#113) - @tinker495
+
+### Documentation
+
+- **Git Worktree Support Documentation**: Add documentation page for git worktree support (#126) - @yoanbernabeu
+
+## [0.28.0] - 2026-02-07
+
+### Added
+
+- **Ollama/LM Studio Endpoint Prompt**: `grepai init` now prompts for custom Ollama/LM Studio endpoint URL during initialization (#111) - @yoanbernabeu
+- **Content-Addressed Embedding Deduplication**: Skip re-embedding unchanged chunks using content hashing, reducing indexing time and API calls (#112) - @tinker495
+- **Nix Release Automation**: Automate `flake.nix` version and vendorHash update in the release GitHub Actions workflow (#117) - @yoanbernabeu
+
+### Fixed
+
+- **UTF-8 Chunk Boundaries**: Align chunk boundaries to valid UTF-8 rune starts to prevent splitting multi-byte characters (#116) - @yoanbernabeu
+
+## [0.27.0] - 2026-02-04
+
+### Added
+
+- **Non-Interactive Workspace Create**: `workspace create` now supports `--name`, `--backend`, `--embedder-provider`, `--embedder-model`, `--dsn` flags for scripted/CI usage (#100) - @jugrajsingh
+  - Enables fully non-interactive workspace creation without TUI prompts
+  - All required parameters can be passed as CLI flags
+- **MCP Serve Workspace Flag**: `mcp-serve --workspace <name>` to scope MCP tools to a specific workspace (#100) - @jugrajsingh
+  - MCP search and trace tools automatically use the workspace context
+- **Workspace Config Helpers**: `FindWorkspaceConfig()` and `WorkspaceStoreConfig()` in config package for programmatic workspace resolution (#100) - @jugrajsingh
+
+### Documentation
+
+- **Community Tools Page**: New documentation page listing community-built tools and integrations (#101) - @miqcie
+- Updated workspace docs with workspace mode, parallelism tiers, and MCP workspace sections
+- Updated MCP docs with workspace-scoped configuration examples
+- Updated embedders docs with parallelism tier reference
+- Updated watch guide with workspace daemon examples
+
+### Dependencies
+
+- Bump `golang.org/x/sync` from 0.18.0 to 0.19.0 (#99) - @dependabot
+
+## [0.26.0] - 2026-02-01
+
+### Added
+
+- **TOON Format Support**: Add `--toon`/`-t` flag for token-efficient output format (#95) - @yoanbernabeu
+  - TOON (Token-Oriented Object Notation) uses ~50% fewer tokens than JSON in compact mode
+  - Available on `search` and `trace` commands (callers, callees, graph)
+  - MCP tools now support `format` parameter ("json" or "toon")
+  - Flags `--json` and `--toon` are mutually exclusive
+  - `--compact` now works with both `--json` and `--toon`
+
+## [0.25.2] - 2026-02-01
+
+### Fixed
+
+- **Ollama Progress Reporting**: Add visual progress bar for sequential (Ollama) indexing (#94) - @anyeloamt
+  - Previously, embedding progress appeared frozen during Ollama indexing
+  - Now displays a real-time progress bar matching the scan bar style
+  - Fixes confusing UX where users would cancel thinking grepai was broken
+
+## [0.25.1] - 2026-01-31
+
+### Fixed
+
+- **OpenAI Dimensions Parameter**: Only send `dimensions` parameter when explicitly configured (#93) - @yoanbernabeu
+  - Changed `Dimensions` from `int` to `*int` in config to distinguish "not set" from "explicitly set"
+  - OpenAI embedder now omits `dimensions` from API requests when not configured, allowing models to use their native dimensions
+  - Fixes issues with custom OpenAI-compatible endpoints that don't support the `dimensions` parameter
+- **Nix Flake**: Update vendorHash for flake (#90) - @mholtzscher
+
+## [0.25.0] - 2026-01-30
+
+### Added
+
+- **Automatic Re-chunking for Large Chunks**: Automatically split chunks that exceed the embedder's context limit (#88) - @yoanbernabeu
+  - New `ContextLengthError` type for detecting context limit errors from providers (Ollama, OpenAI, LM Studio)
+  - `ReChunk()` method splits oversized chunks into smaller sub-chunks using half the original size
+  - Automatic retry with smaller chunks (up to 3 attempts)
+  - Transparent handling: no configuration changes needed
+  - Fixes "input length exceeds context length" errors when `chunking.size` > model limit
+
+## [0.24.1] - 2026-01-29
+
+### Fixed
+
+- **Symlink Directory Indexing**: Resolve symlinks in `FindProjectRoot()` so that `grepai watch` works correctly when executed from a symlinked directory (#85) - @yoanbernabeu
+
+## [0.24.0] - 2026-01-27
+
+### Added
+
+- **Adaptive Rate Limiting for OpenAI**: Auto-adjusts parallelism based on 429 responses, respects Retry-After headers, optional TPM pacing via `WithOpenAITPMLimit` (#81) - @ariel-frischer
+- **Parallel OpenAI Embedding**: 3x+ faster indexing with batched API requests and configurable parallelism (`embedder.parallelism`, default: 4) (#81) - @ariel-frischer
+  - New `BatchEmbedder` interface for batch processing
+  - Exponential backoff with jitter for retries
+  - Token bucket rate limiting for proactive TPM management
+  - Real-time progress reporting during batch embedding
+
+## [0.23.0] - 2026-01-25
+
+### Added
+
+- **Windows PowerShell Installation**: Native PowerShell installation script for Windows users (#73) - @Lisito11
+  - Simple one-liner: `irm https://grepai.dev/install.ps1 | iex`
+  - Automatic PATH configuration
+  - No external dependencies required
+
+### Fixed
+
+- **MCP Server Project Path**: Add optional `project-path` argument to `mcp-serve` command (#76) - @yoanbernabeu
+  - Fixes "failed to find project root" error when launched via Cursor/MCP on Windows
+  - Configuration: `grepai mcp-serve /path/to/your/project`
+  - Fully backward compatible: without argument, uses existing behavior
+
+## [0.22.0] - 2026-01-24
+
+### Added
+
+- **Multi-Project Workspace Support**: Index and search across multiple projects with shared vector store (#75) - @yoanbernabeu
+  - New `grepai workspace` command for managing workspaces:
+    - `workspace create <name>` - Create a new workspace with store/embedder configuration
+    - `workspace add <workspace> <path>` - Add a project to a workspace
+    - `workspace remove <workspace> <project>` - Remove a project from a workspace
+    - `workspace list` - List all configured workspaces
+    - `workspace show <name>` - Show workspace details and projects
+    - `workspace status <name>` - Show indexing status per project
+    - `workspace delete <name>` - Delete a workspace
+  - Extended `grepai watch` with `--workspace` flag for multi-project indexing
+    - Background daemon mode: `grepai watch --workspace <name> --background`
+    - Status check: `grepai watch --workspace <name> --status`
+    - Stop daemon: `grepai watch --workspace <name> --stop`
+  - Extended `grepai search` with `--workspace` and `--project` flags
+    - Cross-project search: `grepai search --workspace <name> "query"`
+    - Scoped search: `grepai search --workspace <name> --project frontend "query"`
+  - Extended MCP server with `workspace` and `projects` parameters for `grepai_search`
+  - Global workspace configuration stored in `~/.grepai/workspace.yaml`
+  - Path prefixing format: `workspaceName/projectName/relativePath` for isolation
+  - Requires PostgreSQL or Qdrant backend (GOB not supported for shared storage)
+  - 100% backward compatible: existing single-project workflows unchanged
+
+### Documentation
+
+- New workspace management documentation page
+- Blog post announcing multi-project workspace feature
+
+## [0.21.0] - 2026-01-23
+
+### Added
+
+- **Pascal/Delphi Language Support for Trace**: Symbol extraction and call graph analysis now supports Pascal/Delphi (#71) - @yoanbernabeu
+  - Functions: `function FunctionName(params): ReturnType;`
+  - Procedures: `procedure ProcedureName(params);`
+  - Class methods: `function TClassName.MethodName` / `procedure TClassName.MethodName`
+  - Classes: `TClassName = class(TParent)` / `TClassName = class`
+  - Interfaces: `IInterfaceName = interface`
+  - Types: records, packed records, enums, type aliases, arrays
+  - Pascal keywords added to filter out false positives
+  - `.pas` and `.dpr` added to default traced languages and supported extensions
+
+- **Claude Code Release Skill**: New skill for automated release process
+  - Checks CI status before proceeding
+  - Determines version type (major/minor/patch) based on changes
+  - Updates CHANGELOG and documentation version
+  - Credits contributors automatically
+
+## [0.20.1] - 2026-01-23
+
+### Fixed
+
+- **MCP Index Status Schema**: Added `verbose` parameter to `grepai_index_status` tool to fix empty schema issue with strict MCP clients like Copilot/GPT5-Codex-Max (#66)
+  - Some MCP clients require a non-empty input schema for all tools
+  - Added regression test to prevent future schema-related issues
+
+## [0.20.0] - 2026-01-23
+
+### Added
+
+- **MCP Compact Mode**: New `compact` parameter for MCP tools to reduce token usage (#61)
+  - `grepai_search`: When `compact=true`, omits the `content` field (~80% token savings)
+  - `grepai_trace_callers`: When `compact=true`, omits the `context` field from call sites
+  - `grepai_trace_callees`: When `compact=true`, omits the `context` field from call sites
+  - Default is `false` for full backward compatibility
+  - Ideal for AI agents that only need file locations to then read files directly
+
+### Documentation
+
+- Added Opencode MCP configuration example
+
+## [0.19.0] - 2026-01-22
+
+### Added
+
+- **Watcher Performance Optimization**: Skip unchanged files on subsequent launches (#62)
+  - New `last_index_time` field in configuration tracks last indexing timestamp
+  - Files with ModTime before `last_index_time` are skipped, avoiding unnecessary embeddings
+  - Config write throttling (30s) prevents file system overload during active development
+  - Significantly faster subsequent `grepai watch` launches (~1ms vs ~100ms for unchanged codebases)
+  - Fully backward compatible: old configs work normally, optimization kicks in after first watch
+
+### Changed
+
+- `Indexer` now accepts `lastIndexTime` parameter for ModTime-based file skipping
+- `runInitialScan` returns `IndexStats` to enable conditional config updates
+
+## [0.18.0] - 2026-01-21
+
+### Added
+
+- **Qdrant Vector Store Backend**: New storage backend using Qdrant vector database (#57)
+  - Support for local Qdrant (Docker) and Qdrant Cloud
+  - gRPC connection with TLS support
+  - Automatic collection creation and management
+  - Docker Compose profile for easy local setup: `docker compose --profile=qdrant up`
+  - Configuration options: endpoint, port, TLS, API key, collection name
+
+### Fixed
+
+- **Qdrant Backend Improvements**: Various fixes and improvements
+  - Fixed default port display in `grepai init` prompt (6333 → 6334 for gRPC)
+  - Added UTF-8 sanitization to prevent indexing errors on files with invalid characters
+  - Added `qdrant_storage` to default ignore patterns
+  - Updated CLI help to include qdrant in backend options
+  - Fixed typo in compose.yaml ("Optionnal" → "Optional")
+
+## [0.17.0] - 2026-01-21
+
+### Added
+
+- **Cursor Rules Support**: `grepai agent-setup` now supports `.cursor/rules` configuration file (#59)
+  - `.cursor/rules` (Cursor's current standard) takes priority over deprecated `.cursorrules`
+  - Backwards compatibility maintained for existing `.cursorrules` files
+  - Both files are configured if present (idempotence handled by marker detection)
+
+## [0.16.1] - 2026-01-18
+
+### Fixed
+
+- **CLI Error Display**: Commands now properly display error messages on stderr (#52, #53)
+  - Previously errors were silenced by Cobra's `SilenceErrors: true` setting
+  - Permission errors in `update` command now show user-friendly message with sudo suggestion
+
+## [0.16.0] - 2026-01-16
+
+### Added
+
+- **Background Daemon Mode**: New flags for `grepai watch` to run as a background process
+  - `grepai watch --background`: Start watcher as a detached daemon
+  - `grepai watch --status`: Check if background watcher is running (shows PID and log location)
+  - `grepai watch --stop`: Gracefully stop the background watcher (with 30s timeout)
+  - `--log-dir`: Override default log directory
+  - OS-specific default log directories:
+    - Linux: `~/.local/state/grepai/logs/` (or `$XDG_STATE_HOME`)
+    - macOS: `~/Library/Logs/grepai/`
+    - Windows: `%LOCALAPPDATA%\grepai\logs\`
+  - PID file management with file locking to prevent race conditions
+  - Automatic stale PID detection and cleanup
+  - Ready signaling: parent waits for child to fully initialize before returning
+  - Graceful shutdown with index persistence on SIGINT/SIGTERM
+- **New `daemon` package**: Cross-platform process lifecycle management
+  - Platform-specific implementations for Unix and Windows
+  - File locking (flock on Unix, LockFileEx on Windows)
+  - Process detection and signal handling
+
+## [0.15.1] - 2026-01-16
+
+### Added
+
+- **External Gitignore Support**: New `external_gitignore` configuration option to specify a path to an external gitignore file (e.g., `~/.config/git/ignore`) (#50)
+  - Supports `~` expansion for home directory paths
+  - External patterns are respected during indexing alongside project-level `.gitignore` files
+  - If the file doesn't exist, a warning is logged but indexing continues normally
+
+## [0.15.0] - 2026-01-14
+
+### Added
+
+- **C# Language Support for Trace**: Symbol extraction and call graph analysis now supports C# (#48)
+  - Classes (with inheritance, generics, sealed/abstract/static/partial modifiers)
+  - Structs (including readonly and ref structs)
+  - Records (record, record class, record struct)
+  - Interfaces (including generic interfaces)
+  - Methods (with all modifiers: public, private, protected, internal, static, virtual, override, abstract, async, etc.)
+  - Constructors
+  - Expression-bodied members
+  - C# keywords added to filter out false positives
+  - `.cs` added to default traced languages
+  - Tree-sitter support for precise symbol extraction
+
+## [0.14.0] - 2026-01-12
+
+### Added
+
+- **Java Language Support for Trace**: Symbol extraction and call graph analysis now supports Java (#32)
+  - Classes (with extends/implements, generics, sealed/non-sealed)
+  - Inner and nested classes
+  - Interfaces (including generic interfaces)
+  - Annotations (`@interface`)
+  - Enums (top-level and inner, with methods)
+  - Records (Java 14+)
+  - Methods with all modifiers (public, protected, private, static, final, abstract, synchronized, native, strictfp)
+  - Constructors
+  - Default interface methods (Java 8+)
+  - Abstract methods
+  - Java keywords added to filter out false positives
+  - `.java` added to default traced languages
+
+## [0.13.0] - 2026-01-12
+
+### Added
+
+- **Self-Update Command**: New `grepai update` command for automatic updates (#42)
+  - `grepai update --check`: Check for available updates without installing
+  - `grepai update`: Download and install the latest version from GitHub releases
+  - `grepai update --force`: Force update even if already on latest version
+  - Automatic platform detection (linux/darwin/windows, amd64/arm64)
+  - SHA256 checksum verification before installation
+  - Progress bar during download
+  - Graceful error handling for network issues, rate limits, and permission errors
+
+### Changed
+
+- **Makefile**: Uses Docker for consistent linting with golangci-lint v1.64.2
+
+## [0.12.0] - 2026-01-12
+
+### Fixed
+
+- **Custom OpenAI Endpoint**: Fixed `embedder.endpoint` config not being used for OpenAI provider (#35)
+  - Enables Azure OpenAI and Microsoft Foundry support
+  - Custom endpoints now correctly passed to the OpenAI embedder
+
+### Added
+
+- **Configurable Vector Dimensions**: New `embedder.dimensions` config option (#35)
+  - Allows specifying vector dimensions per embedding model
+  - PostgreSQL vector column automatically resizes to match configured dimensions
+  - Backward compatible: old configs without `dimensions` use sensible defaults per provider
+
+## [0.11.0] - 2026-01-12
+
+### Added
+
+- **Nested `.gitignore` Support**: Each subdirectory can now have its own `.gitignore` file (#40)
+  - Patterns in nested `.gitignore` files apply only to their directory and subdirectories
+  - Matches git's native behavior for hierarchical ignore rules
+  - Example: `src/.gitignore` with `generated/` only ignores `src/generated/`, not `docs/generated/`
+
+### Fixed
+
+- **Directory Pattern Matching**: Patterns with trailing slash (e.g., `build/`) now correctly match the directory itself
+  - Previously only matched contents inside the directory
+  - Now triggers `filepath.SkipDir` for better performance on large repositories
+  - Significantly improves indexing speed when ignoring `node_modules/`, `vendor/`, etc.
+
+## [0.10.0] - 2026-01-11
+
+### Added
+
+- **Compact JSON Output**: New `--compact`/`-c` flag for `grepai search` command (#33)
+  - Outputs minimal JSON without `content` field for ~80% token savings
+  - Requires `--json` flag (returns error if used alone)
+  - Recommended format for AI agents: `grepai search "query" --json --compact`
+  - All agent setup templates updated to use `--json --compact` by default
+
+## [0.9.0] - 2026-01-11
+
+### Added
+
+- **Claude Code Subagent**: New `--with-subagent` flag for `grepai agent-setup` (#17)
+  - Creates `.claude/agents/deep-explore.md` for Claude Code
+  - Provides a specialized exploration agent with grepai search and trace access
+  - Uses `model: inherit` to match user's current model
+  - Subagents operate in isolated context, ensuring grepai tools are available during exploration
+
+## [0.8.1] - 2026-01-11
+
+### Documentation
+
+- Simplify Claude Code MCP setup: use `claude mcp add` command instead of manual JSON configuration
+
+## [0.8.0] - 2026-01-11
+
+### Added
+
+- **MCP Server Mode**: New `grepai mcp-serve` command for Model Context Protocol integration (#18)
+  - Exposes grepai as native MCP tools for AI agents (Claude Code, Cursor, Windsurf, etc.)
+  - Available tools: `grepai_search`, `grepai_trace_callers`, `grepai_trace_callees`, `grepai_trace_graph`, `grepai_index_status`
+  - Uses stdio transport for local MCP server communication
+  - Structured JSON responses by default
+  - Works automatically in subagents without explicit configuration
+
+## [0.7.2] - 2026-01-11
+
+### Documentation
+
+- **Sidebar Reorganization**: Moved "Search Boost" and "Hybrid Search" from Configuration to Features section
+- **Configuration Reference**: Updated full configuration reference with correct field names
+  - Added missing options: `version`, `watch.debounce_ms`, `trace.mode`, `trace.enabled_languages`, `trace.exclude_patterns`
+  - Fixed `scanner.ignore` → `ignore` (root level)
+  - Fixed `store.postgres.connection_string` → `dsn`
+  - Removed `store.gob.path` (handled automatically)
+- **Trace Documentation**: Added missing supported languages (C, C++, Zig, Rust) to the languages table
+
+## [0.7.1] - 2026-01-11
+
+### Added
+
+- **Agent Setup Trace Instructions**: Updated `grepai agent-setup` to include trace command documentation (#16)
+  - Added "Call Graph Tracing" section with `trace callers`, `trace callees`, `trace graph` examples
+  - All trace examples include `--json` flag for optimal AI agent integration
+  - Updated workflow to include trace as step 2 for understanding function relationships
+
+## [0.7.0] - 2026-01-10
+
+### Added
+
+- **Extended Language Support for Trace**: Symbol extraction now supports additional languages
+  - C (`.c`, `.h`) - functions, structs, enums, typedefs
+  - Zig (`.zig`) - functions, methods (inside structs/enums), inline/export/extern functions, structs, unions, enums, error sets, opaque types, nested types
+  - Rust (`.rs`) - functions, methods, structs, enums, traits, type aliases
+  - C++ (`.cpp`, `.hpp`, `.cc`, `.cxx`, `.hxx`) - functions, methods, classes, structs, enums
+- **Default ignore patterns** for Zig and Rust build directories: `target`, `.zig-cache`, `zig-out`
+
+## [0.6.0] - 2026-01-10
+
+### Added
+
+- **Search JSON Output**: New `--json`/`-j` flag for `grepai search` command
+  - Machine-readable JSON output optimized for AI agents
+  - Excludes internal fields (vector, hash, updated_at) to minimize token usage
+  - Error handling outputs JSON format when flag is used
+  - Closes #13
+
+## [0.5.0] - 2026-01-10
+
+### Added
+
+- **Call Graph Tracing**: New `grepai trace` command for code navigation
+  - `trace callers <symbol>` - find all functions calling a symbol
+  - `trace callees <symbol>` - find all functions called by a symbol
+  - `trace graph <symbol>` - build call graph with configurable depth
+- Regex-based symbol extraction (fast mode) for Go, JS/TS, Python, PHP
+- Tree-sitter integration (precise mode) with build tag `treesitter`
+- Separate symbol index stored in `.grepai/symbols.gob`
+- JSON output for AI agent integration (`--json` flag)
+- Automatic symbol indexing during `grepai watch`
+
+## [0.4.0] - 2026-01-10
+
+### Added
+
+- **LM Studio Provider**: New local embedding provider using LM Studio
+  - Supports OpenAI-compatible API format
+  - Configurable endpoint and model selection
+  - Privacy-first alternative for local embeddings
+
+## [0.3.0] - 2026-01-09
+
+### Added
+
+- **Search Boost**: Configurable score multipliers based on file paths
+  - Penalize tests, mocks, fixtures, generated files, and docs
+  - Boost source directories (`/src/`, `/lib/`, `/app/`)
+  - Language-agnostic patterns, enabled by default
+- **Hybrid Search**: Combine vector similarity with text matching
+  - Uses Reciprocal Rank Fusion (RRF) algorithm
+  - Configurable k parameter (default: 60)
+  - Optional, disabled by default
+- `GetAllChunks()` method to VectorStore interface for text search
+- Dedicated documentation pages for Search Boost and Hybrid Search
+- Feature cards on docs homepage
+
+### Changed
+
+- Searcher now accepts full SearchConfig instead of just BoostConfig
+
+## [0.2.0] - 2026-01-09
+
+### Added
+
+- Initial release of grepai
+- `grepai init` command for project initialization
+- `grepai watch` command for real-time file indexing
+- `grepai search` command for semantic code search
+- `grepai agent-setup` command for AI agent integration
+- Ollama embedding provider (local, privacy-first)
+- OpenAI embedding provider
+- GOB file storage backend (default)
+- PostgreSQL with pgvector storage backend
+- Gitignore support
+- Binary file detection and exclusion
+- Configurable chunk size and overlap
+- Debounced file watching
+- Cross-platform support (macOS, Linux, Windows)
+
+### Security
+
+- Privacy-first design with local embedding option
+- No telemetry or data collection
+
+## [0.1.0] - 2026-01-09
+
+### Added
+
+- Initial public release
+
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/yoanbernabeu/grepai/compare/v0.36.1...v0.37.0
+[0.36.1]: https://github.com/yoanbernabeu/grepai/compare/v0.36.0...v0.36.1
+[0.36.0]: https://github.com/yoanbernabeu/grepai/compare/v0.35.0...v0.36.0
+[0.35.0]: https://github.com/yoanbernabeu/grepai/compare/v0.34.0...v0.35.0
+[0.34.0]: https://github.com/yoanbernabeu/grepai/compare/v0.33.0...v0.34.0
+[0.33.0]: https://github.com/yoanbernabeu/grepai/compare/v0.32.1...v0.33.0
+[0.32.1]: https://github.com/yoanbernabeu/grepai/compare/v0.32.0...v0.32.1
+[0.32.0]: https://github.com/yoanbernabeu/grepai/compare/v0.31.0...v0.32.0
+[0.31.0]: https://github.com/yoanbernabeu/grepai/compare/v0.30.0...v0.31.0
+[0.30.0]: https://github.com/yoanbernabeu/grepai/compare/v0.29.0...v0.30.0
+[0.29.0]: https://github.com/yoanbernabeu/grepai/compare/v0.28.0...v0.29.0
+[0.28.0]: https://github.com/yoanbernabeu/grepai/compare/v0.27.0...v0.28.0
+[0.27.0]: https://github.com/yoanbernabeu/grepai/compare/v0.26.0...v0.27.0
+[0.26.0]: https://github.com/yoanbernabeu/grepai/compare/v0.25.2...v0.26.0
+[0.25.2]: https://github.com/yoanbernabeu/grepai/compare/v0.25.1...v0.25.2
+[0.25.1]: https://github.com/yoanbernabeu/grepai/compare/v0.25.0...v0.25.1
+[0.25.0]: https://github.com/yoanbernabeu/grepai/compare/v0.24.1...v0.25.0
+[0.24.1]: https://github.com/yoanbernabeu/grepai/compare/v0.24.0...v0.24.1
+[0.24.0]: https://github.com/yoanbernabeu/grepai/compare/v0.23.0...v0.24.0
+[0.23.0]: https://github.com/yoanbernabeu/grepai/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/yoanbernabeu/grepai/compare/v0.21.0...v0.22.0
+[0.21.0]: https://github.com/yoanbernabeu/grepai/compare/v0.20.1...v0.21.0
+[0.20.1]: https://github.com/yoanbernabeu/grepai/compare/v0.20.0...v0.20.1
+[0.20.0]: https://github.com/yoanbernabeu/grepai/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/yoanbernabeu/grepai/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/yoanbernabeu/grepai/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/yoanbernabeu/grepai/compare/v0.16.1...v0.17.0
+[0.16.1]: https://github.com/yoanbernabeu/grepai/compare/v0.16.0...v0.16.1
+[0.16.0]: https://github.com/yoanbernabeu/grepai/compare/v0.15.1...v0.16.0
+[0.15.1]: https://github.com/yoanbernabeu/grepai/compare/v0.15.0...v0.15.1
+[0.15.0]: https://github.com/yoanbernabeu/grepai/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/yoanbernabeu/grepai/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/yoanbernabeu/grepai/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/yoanbernabeu/grepai/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/yoanbernabeu/grepai/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/yoanbernabeu/grepai/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/yoanbernabeu/grepai/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/yoanbernabeu/grepai/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/yoanbernabeu/grepai/compare/v0.7.2...v0.8.0
+[0.7.2]: https://github.com/yoanbernabeu/grepai/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/yoanbernabeu/grepai/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/yoanbernabeu/grepai/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/yoanbernabeu/grepai/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/yoanbernabeu/grepai/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/yoanbernabeu/grepai/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/yoanbernabeu/grepai/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/yoanbernabeu/grepai/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/yoanbernabeu/grepai/releases/tag/v0.1.0

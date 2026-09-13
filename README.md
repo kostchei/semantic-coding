@@ -74,14 +74,53 @@ graph TD
 Semantic_Coding/
 ├── bin/
 │   └── grepai.exe               # grepai v0.37.0 standalone Windows executable
-├── grepai/                      # Cloned grepai source repository (ground truth testbed)
+├── semcode/                     # Production Python core package
+│   ├── creds.py                 # Windows Credential Manager Advapi32 vault interface
+│   ├── grepai_runner.py         # Subprocess runner with child-only OPENAI_API_KEY injection
+│   ├── registry.py              # Atomic JSON workspace registry with corruption guard
+│   ├── pipeline.py              # Canonical RRF ranking with absolute paths and tie-breaking
+│   ├── indexer.py               # Git-aware clean indexer with exclusion filters & sync
+│   ├── sync.py                  # Dual-index incremental sync runner
+│   ├── auto_index.py            # Detached background worker for auto-indexing new repos
+│   └── doctor.py                # 18-point comprehensive system diagnostic engine
+├── integrations/                # Multi-agent hands-off integration layer
+│   ├── install.py               # Idempotent integration installer (Claude, Codex, Antigravity)
+│   ├── instructions.md          # Managed instruction block for coding assistants
+│   ├── hooks/                   # Claude Code hooks (prompt context injection, session start)
+│   └── skill/                   # Reusable agent skill (SKILL.md)
 ├── templates/
-│   ├── config.text.yaml         # .grepai/config.yaml for nomic-embed-text
-│   └── config.code.yaml         # .grepai/config.yaml for 7B code model
+│   ├── config.text.yaml         # .grepai/config.yaml for nomic-embed-text (no plaintext keys)
+│   └── config.code.yaml         # .grepai/config.yaml for 7B code model (no plaintext keys)
 ├── benchmarks/
 │   ├── cases.json               # Curated ground truth test battery (12 stress queries)
-│   └── benchmark.py             # Automated evaluation engine (MRR, Hit@K, Margin, Latency)
-├── run_benchmark.ps1            # End-to-end PowerShell test orchestrator
+│   ├── synthetic_cases.json     # AST-inverted synthetic cases
+│   ├── optimal_params.json      # Mathematically optimal RRF parameters (k=5, wt=1.5, wc=0.5)
+│   ├── benchmark.py             # Automated evaluation engine (MRR, Hit@K, Margin, Latency)
+│   ├── generate_synthetic_cases.py
+│   └── tune_hyperparameters.py
+├── telemetry/
+│   ├── collector.py             # Telemetry logger and hard-negative triplet miner
+│   └── triplets.jsonl           # Active contrastive training dataset
+├── training/
+│   └── train_cross_encoder.py   # PyTorch Margin Ranking Loss trainer (prototype)
+├── config/
+│   └── auto_index.json          # Auto-index policy, thresholds, and deny-lists
+├── tests/                       # Automated regression test suite
+│   ├── test_no_plaintext_secrets.py
+│   ├── test_registry.py
+│   ├── test_auto_index.py
+│   ├── test_retrieval.py
+│   └── test_harness.ps1
+├── doctor.ps1                   # 1-click system diagnostics runner
+├── install_integrations.ps1     # 1-click agent integration installer
+├── index_project.ps1            # Git-aware multi-project indexer wrapper
+├── sync_hybrid_indices.ps1      # Incremental sync wrapper
+├── hybrid_search.py             # Interactive CLI & agent search frontend
+├── mcp_server.py                # FastMCP Stdio server with absolute path resolution
+├── run_security_audit.py        # Automated 6-case security audit benchmark
+├── run_agent_harness.ps1        # Read-only agent verification harness
+├── run_evaluation_pipeline.ps1  # Continuous evaluation flywheel runner
+├── run_benchmark.ps1            # Dual-model comparative benchmark runner
 └── README.md                    # This documentation
 ```
 
@@ -220,83 +259,102 @@ python training\train_cross_encoder.py --epochs 5
 
 ---
 
-## 9. Desktop AI Assistant Integration (Daily Drivers)
+---
 
-The hybrid retrieval engine is exposed as a standard Model Context Protocol (FastMCP) server via `mcp_server.py`, seamlessly integrating with daily driver coding environments:
+## 9. Hands-Off Desktop AI Assistant Integration (1-Click Installer)
 
-### Claude Code
-```powershell
-claude mcp add --scope user grepai-hybrid -- python e:\Semantic_Coding\mcp_server.py
-```
-
-Install the server runtime with `python -m pip install -r requirements.txt`.
-For MCP calls, always pass `project` as a registered name or absolute source path.
-Omitting it uses the MCP server's working directory, which may differ from the client's project.
-
-For reproducible read-only CLI exploration:
+The hybrid retrieval engine seamlessly integrates with all primary daily driver coding assistants (**Claude Code**, **OpenAI Codex**, and **Google Antigravity**) with zero manual configuration files required:
 
 ```powershell
-.\run_agent_harness.ps1 -Agent codex -ProjectPath E:\ORAC -Prompt "Find privilege enforcement"
-.\run_agent_harness.ps1 -Agent claude -ProjectPath E:\ORAC -Prompt "Find privilege enforcement"
+# Run the idempotent 1-click integration installer
+.\install_integrations.ps1
 ```
 
-The harness explicitly requests hybrid MCP retrieval and checks the structured event trace.
-It fails if retrieval is skipped or the agent fails. Logs are stored in ignored `harness-results/`.
-Registration alone does not guarantee autonomous tool selection.
+This installer automatically configures:
+1. **Claude Code:**
+   - Registers `grepai-hybrid` in `~/.claude.json` (`mcpServers`).
+   - Injects managed prompt hooks (`~/.claude/hooks/prompt_context.py`) for automatic query context injection on `UserPromptSubmit` and `SessionStart`.
+   - Adds fenced instructions in `~/.claude/CLAUDE.md` directing Claude to prioritize `search_codebase` before falling back to grep/find.
+2. **OpenAI Codex:**
+   - Appends `[mcp_servers.grepai_hybrid]` to `~/.codex/config.toml`.
+   - Adds managed guidance in `~/.codex/AGENTS.md`.
+3. **Google Antigravity:**
+   - Deploys `~/.gemini/antigravity/mcp/grepai-hybrid/search_codebase.json`.
+   - Deploys `.gemini/skills/grepai-hybrid/SKILL.md` and managed instruction block.
 
-Claude can use a valid saved login (`claude auth login`). For unattended execution,
-run `claude setup-token` and supply its output through `CLAUDE_CODE_OAUTH_TOKEN`,
-or supply `ANTHROPIC_API_KEY` through your secret manager/environment. Do not commit tokens.
-Authentication status is a preflight check, not proof a credential is still valid at the API.
-See [ASSESSMENT.md](ASSESSMENT.md) for confirmed fixes and remaining limitations.
-
-For Windows testing, store OAuth in Windows Credential Manager instead of a file
-or persistent environment variable. In an interactive PowerShell terminal:
-
+### Unprompted Agent Verification Harness
+Verify that agents autonomously choose hybrid retrieval without manual prompting:
 ```powershell
-python secure_credentials.py setup --cli "$env:APPDATA\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"
-python secure_credentials.py status
+# Unprompted autonomous mode
+.\run_agent_harness.ps1 -Agent codex -ProjectPath E:\ORAC -Prompt "Find privilege enforcement" -Mode Unprompted
+.\run_agent_harness.ps1 -Agent claude -ProjectPath E:\ORAC -Prompt "Find privilege enforcement" -Mode Unprompted
+
+# Unit test the harness event parser
+powershell -ExecutionPolicy Bypass -File tests\test_harness.ps1
 ```
-
-Use the path to your native Claude CLI executable if installed elsewhere. The
-setup helper runs `claude setup-token`, suppresses token output, and stores it at
-`SemanticCoding/ClaudeCodeOAuth` for the current Windows user. Alternatively,
-`python secure_credentials.py store` accepts an existing token with hidden terminal
-input. The harness reads this store and injects the token only into its child CLI
-environment; it never puts it in command arguments or logs. Expired/revoked tokens
-must be replaced through setup. Desktop and CLI authentication can differ.
-
-The Codex harness grants invocation approval only to this repository's
-`search_codebase` tool, retaining the read-only shell sandbox. Use a CLI version
-compatible with your configured model; live testing here used Codex 0.154.0.
-
-### OpenAI Codex Desktop App
-In `~/.codex/config.toml`:
-```toml
-[mcp_servers.grepai_hybrid]
-command = "python"
-args = ["e:\\Semantic_Coding\\mcp_server.py"]
-```
-
-### Antigravity IDE & Agent
-Equipped natively with `.gemini/skills/grepai-hybrid/SKILL.md` and MCP server tool definitions in `~/.gemini/antigravity/mcp/grepai-hybrid/`.
 
 ---
 
-## 10. Multi-Project Support & Arbitrary Codebase Indexing
+## 10. Secure Credential Vault (Windows Credential Manager)
 
-To index and retrieve across any repository on your machine without altering its file tree:
+This repository enforces a strict **Zero-Plaintext-Secret** invariant:
+- **No secrets in `config.yaml`:** All `.grepai/config.yaml` files have `api_key: ""` (empty).
+- **Sole Source of Truth:** Secrets are stored exclusively in the Windows Credential Manager generic credential vault:
+  - `grepai-hybrid/lmstudio` (User: `lmstudio`): LM Studio bearer token.
+  - `SemanticCoding/ClaudeCodeOAuth`: Claude Code OAuth token.
+- **Child-Only Injection:** During indexing and searching, `semcode.grepai_runner` resolves the token from Windows Credential Manager and injects it strictly into the child process environment as `OPENAI_API_KEY`. Secrets are never passed via CLI flags, logged to disk, or committed to git.
 
 ```powershell
-# 1. Index any project (e.g. praetor_silica or LDGM)
+# Set or update LM Studio token in Windows Credential Manager
+python -c "import semcode.creds as c; c.set_lmstudio_key('YOUR_LMSTUDIO_TOKEN')"
+
+# Set or update Claude Code OAuth token
+python secure_credentials.py setup --cli "$env:APPDATA\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"
+```
+
+---
+
+## 11. Multi-Project Support & Hands-Off Auto-Indexing
+
+The centralized workspace registry (`workspaces/registry.json`) allows indexing and retrieving across any project on your machine while keeping target repositories 100% untouched.
+
+### Clean Git-Aware Indexing
+Indexing respects `.gitignore`, `.git/info/exclude`, and mandatory system excludes (`.claude`, `.codex`, `.gemini`, `.grepai`, submodules, and worktrees):
+```powershell
+# Index any project (e.g. praetor_silica or LDGM)
 .\index_project.ps1 -ProjectPath "E:\praetor_silica"
 
-# 2. Search explicitly by project name
-python hybrid_search.py "verify LM Studio setup" --project praetor_silica -n 3
+# Incremental synchronization (detects additions, modifications, and deletions)
+.\sync_hybrid_indices.ps1 -Project praetor_silica -Once
 
-# 3. Or search automatically via CWD in Claude Code, Codex, or terminal:
-cd E:\praetor_silica
-python e:\Semantic_Coding\hybrid_search.py "platform lock file verification"
+# Interactive search across any registered project
+python hybrid_search.py "platform lock file verification" --project praetor_silica -n 3
 ```
+
+### Hands-Off Background Auto-Indexing
+When an AI agent or developer searches a new git repository that is not yet indexed, `semcode.auto_index` automatically evaluates eligibility (must be a valid git repo, $< 5,000$ files, not matching deny-list in `config/auto_index.json`), registers the project, and launches a detached background worker to index it without blocking the user.
+
+---
+
+## 12. 1-Click System Doctor & Diagnostics
+
+To instantly verify system health, credential storage, LM Studio connectivity, workspace registry integrity, and MCP integrations:
+
+```powershell
+.\doctor.ps1
+```
+
+The doctor performs 18 automated diagnostic checks and reports pass/fail with explicit remediation instructions if any component is degraded:
+- Python version & `mcp` / `semcode` import sanity
+- `grepai.exe` binary accessibility & version
+- Windows Credential Manager `grepai-hybrid/lmstudio` target & non-empty token
+- LM Studio API reachability & models list (`http://127.0.0.1:1234/v1/models`)
+- LM Studio embeddings endpoint test call
+- `workspaces/registry.json` schema validation & corruption check
+- Project dual-index directory health & `.grepai/config.yaml` verification
+- Exclusion filters & git tracking for all registered projects
+- MCP server initialization (`mcp_server.py`)
+- Claude Code, Codex, and Antigravity configuration files, hooks, and skills
+
 
 

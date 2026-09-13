@@ -1,5 +1,6 @@
 # Architecture Plan: Two-Stage Hybrid Code Retrieval & Re-ranking Engine
 
+**Status:** Historical / Fully Implemented (Phases 1–5 completed and migrated to `semcode` package).  
 **Project:** `Semantic_Coding` / `grepai` Hybrid Suite  
 **Target Rig:** 24 GB VRAM Local GPU Server  
 **Primary Objective:** Deliver state-of-the-art semantic code retrieval accuracy by combining lightweight natural-language embeddings, deep 7B code embeddings, and local LLM cross-encoder re-ranking, discarding speed and memory constraints in favor of maximum precision.
@@ -70,31 +71,25 @@ With a 24 GB GPU, all three models remain memory-resident simultaneously in LM S
 * [x] Implement document-level Reciprocal Rank Fusion ($k=15$, $w_{\text{text}}=1.0$, $w_{\text{code}}=1.1$).
 * [x] Validate live performance: Hit@3 increased from 50.0% to 66.7%.
 
-### Phase 2: Local Re-ranking Layer (`hybrid_reranker.py`)
-* [ ] Integrate with LM Studio `/v1/chat/completions` endpoint using token from Windows Credential Store (`PraetorSilica/LMStudioDev`).
-* [ ] Prompt Engineering for fast snippet evaluation:
-  * Present query and top 8 candidates formatted with snippet bounding boxes.
-  * Request JSON output: `{"rankings": [{"id": 1, "score": 0.95, "reason": "..."}]}`.
-* [ ] Graceful fallback: If no chat model is loaded in LM Studio, seamlessly return the Stage 1 RRF results without throwing errors.
-* [ ] Add `--rerank` flag to CLI and `--rerank-model` option.
+### Phase 2: Local Re-ranking Layer (`semcode.pipeline`)
+* [x] Integrate with LM Studio `/v1/chat/completions` endpoint using token from Windows Credential Store (`grepai-hybrid/lmstudio`).
+* [x] Prompt Engineering for fast snippet evaluation formatted with snippet bounding boxes.
+* [x] Fail loudly if LLM service is unreachable or unconfigured.
+* [x] Add `--rerank` flag to CLI and `--rerank-model` option.
 
-### Phase 3: Dual-Index Synchronizer (`sync_hybrid_indices.ps1`)
-* [ ] Background watcher script to keep both vector stores up to date as files are edited.
-* [ ] Incremental file-change detection using file hash / timestamp comparison.
-* [ ] Foreground batch runner avoiding `grepai watch --background` 30-second timeout.
+### Phase 3: Dual-Index Synchronizer (`semcode.sync`)
+* [x] Background watcher and CLI synchronizer to keep both vector stores up to date as files are edited.
+* [x] Incremental file-change detection using git-based file selection.
+* [x] Graceful completion signal detection via watcher output.
 
 ### Phase 4: Full-Suite Automated Benchmark
-* [ ] Extend `benchmarks/benchmark.py` to evaluate:
-  1. 137M Text Baseline
-  2. 7B Code Baseline
-  3. Stage 1 RRF Hybrid
-  4. Stage 2 RRF + LLM Re-Ranker
-* [ ] Track Hit@1, Hit@3, Hit@5, MRR, Latency, and Cost per Query across the 12 ground truth cases.
-* [ ] Generate automated comparison charts and markdown reports in `benchmarks/`.
+* [x] Extend `benchmarks/benchmark.py` to evaluate 137M, 7B, and Hybrid engines.
+* [x] Track Hit@1, Hit@3, Hit@5, MRR, Latency across benchmark cases.
+* [x] Generate automated comparison charts and markdown reports in `benchmarks/`.
 
-### Phase 5: Agent MCP Tool Server (`mcp-grepai-hybrid`)
-* [ ] Expose `hybrid_search` as a standard Model Context Protocol (MCP) tool.
-* [ ] Enable AI coding assistants (Cursor, Windsurf, Claude Code, Antigravity) to query the hybrid engine via native tool calls.
+### Phase 5: Agent MCP Tool Server (`mcp_server.py`)
+* [x] Expose `search_codebase` as a standard Model Context Protocol (MCP) tool.
+* [x] Enable AI coding assistants (Claude Code, Codex, Antigravity) to query the hybrid engine via native tool calls and prompt context hooks.
 
 ---
 

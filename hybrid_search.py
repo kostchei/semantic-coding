@@ -17,68 +17,31 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
-def get_stored_credential(target_name: str = "PraetorSilica/LMStudioDev") -> str:
-    """Safely retrieves API token from Windows Credential Store if on Windows."""
-    if os.name != "nt":
-        return os.environ.get("LM_API_TOKEN", "")
-
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        class CREDENTIAL(ctypes.Structure):
-            _fields_ = [
-                ('Flags', wintypes.DWORD),
-                ('Type', wintypes.DWORD),
-                ('TargetName', wintypes.LPWSTR),
-                ('Comment', wintypes.LPWSTR),
-                ('LastWritten', wintypes.FILETIME),
-                ('CredentialBlobSize', wintypes.DWORD),
-                ('CredentialBlob', ctypes.POINTER(ctypes.c_byte)),
-                ('Persist', wintypes.DWORD),
-                ('AttributeCount', wintypes.DWORD),
-                ('Attributes', ctypes.c_void_p),
-                ('TargetAlias', wintypes.LPWSTR),
-                ('UserName', wintypes.LPWSTR),
-            ]
-
-        pcred = ctypes.POINTER(CREDENTIAL)()
-        if ctypes.windll.advapi32.CredReadW(target_name, 1, 0, ctypes.byref(pcred)):
-            blob = ctypes.string_at(pcred.contents.CredentialBlob, pcred.contents.CredentialBlobSize)
-            ctypes.windll.advapi32.CredFree(pcred)
-            try:
-                return blob.decode('utf-16le').strip()
-            except UnicodeDecodeError:
-                return blob.decode('utf-8').strip()
-    except Exception:
-        pass
-
-    return os.environ.get("LM_API_TOKEN", "")
+def get_stored_credential(target_name: Optional[str] = None) -> str:
+    """Safely retrieves API token from Windows Credential Store."""
+    from semcode.creds import get_lmstudio_token
+    return get_lmstudio_token()
 
 
 def find_binary(custom_path: Optional[str] = None) -> str:
-    if custom_path and os.path.isfile(custom_path):
-        return custom_path
-    script_dir = Path(__file__).resolve().parent
-    local_bin = script_dir / "bin" / "grepai.exe"
-    if local_bin.is_file():
-        return str(local_bin)
-    import shutil
-    which = shutil.which("grepai")
-    if which:
-        return which
-    raise FileNotFoundError("Could not find grepai.exe")
+    from semcode.grepai_runner import find_binary as _find_binary
+    return _find_binary(custom_path)
 
 
 def run_single_search(bin_path: str, repo_dir: str, query: str, limit: int = 15) -> List[Dict[str, Any]]:
+    from semcode.creds import get_lmstudio_token
+    token = get_lmstudio_token()
+    env = os.environ.copy()
+    env["OPENAI_API_KEY"] = token
     cmd = [bin_path, "search", query, "-j", "-n", str(limit)]
     try:
         proc = subprocess.run(
             cmd, cwd=repo_dir, stdin=subprocess.DEVNULL, capture_output=True,
-            text=True, encoding="utf-8", check=False, timeout=60
+            text=True, encoding="utf-8", check=False, timeout=60, env=env
         )
         if proc.returncode != 0:
-            raise RuntimeError(f"grepai search failed in {repo_dir} (exit {proc.returncode}); check the index and embedding service")
+            stderr = proc.stderr.strip() if proc.stderr else ""
+            raise RuntimeError(f"grepai search failed in {repo_dir} (exit {proc.returncode}): {stderr}")
         if not proc.stdout.strip():
             raise ValueError("grepai returned empty output instead of JSON")
         data = json.loads(proc.stdout)
@@ -306,13 +269,15 @@ def resolve_project_dirs(
         if not pinfo.get("source_path"):
             continue
         sp = os.path.abspath(pinfo["source_path"]).lower()
-        if sp and (cwd == sp or cwd.startswith(sp + os.sep)):
+        sp_clean = sp.rstrip(os.sep)
+        if sp and (cwd == sp or cwd.startswith(sp_clean + os.sep)):
             return pinfo["text_dir"], pinfo["code_dir"], pname
 
-    # 4. Fallback to passed text_dir/code_dir or defaults
-    resolved_text = text_dir if text_dir is not None else str(script_dir / "repo-text")
-    resolved_code = code_dir if code_dir is not None else str(script_dir / "repo-code")
-    return resolved_text, resolved_code, "default"
+    # 4. Unknown project -> Fail loudly without silent fallback (G8)
+    raise ValueError(
+        f"Directory '{os.getcwd()}' does not match any registered project in workspaces/registry.json.\n"
+        f"Remediation: Specify --project <name> or index this project with index_project.ps1 -ProjectPath <path>."
+    )
 
 
 def main():
@@ -330,7 +295,6 @@ def main():
     parser.add_argument("--rerank", action="store_true", help="Enable Stage 2 local LLM re-ranking")
     parser.add_argument("--rerank-model", type=str, help="Model name for re-ranking in LM Studio")
     parser.add_argument("--endpoint", type=str, default="http://127.0.0.1:1234/v1", help="LM Studio API endpoint")
-    parser.add_argument("--token", type=str, help="API token for LM Studio (auto-resolves from Windows Credential Store if omitted)")
     parser.add_argument("--feedback-selected", type=str, help="Mark a file as the positive selection to capture a training triplet")
     parser.add_argument("--no-telemetry", action="store_true", help="Disable interaction telemetry logging")
     args = parser.parse_args()
@@ -338,7 +302,7 @@ def main():
         parser.error("--limit must be between 1 and 15")
 
     bin_path = find_binary()
-    token = args.token or get_stored_credential("PraetorSilica/LMStudioDev")
+    token = get_stored_credential()
 
     # Auto-load optimal hyperparameters if available
     k_val = args.k

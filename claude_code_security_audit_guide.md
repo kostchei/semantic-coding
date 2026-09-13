@@ -10,23 +10,27 @@ Claude Code and `grepai-hybrid` work together for continuous AI-assisted securit
 
 Claude Code can be configured to use `grepai` and the multi-project `grepai-hybrid` engine in both target repositories.
 
-### Terminal Setup
+### 1-Click Automated Setup
 
-Execute in either repository root (`D:\Code\ash-rpg` or `D:\Code\ORAC`):
+From `E:\Semantic_Coding`, run the integration installer:
 
-```bash
-# 1. Ensure CLAUDE.md exists
-touch CLAUDE.md
-
-# 2. Configure Claude Code agent and subagent instructions
-e:\Semantic_Coding\bin\grepai.exe agent-setup --with-subagent
+```powershell
+.\install_integrations.ps1
 ```
 
-This updates `CLAUDE.md` with instructions directing Claude Code to leverage semantic search instead of brute-force directory listings, and installs `.claude/agents/deep-explore.md` with grepai access.
+This automatically:
+1. Configures `grepai-hybrid` in `~/.claude.json`.
+2. Deploys `~/.claude/hooks/prompt_context.py` to auto-inject hybrid search suggestions on `UserPromptSubmit` and `SessionStart`.
+3. Adds managed instructions into `~/.claude/CLAUDE.md` directing Claude to invoke `search_codebase` before falling back to manual grep/find.
 
-### Global MCP Registration
+Verify the setup at any time by running:
+```powershell
+.\doctor.ps1
+```
 
-Claude Code connects to the central multi-project hybrid server via `~/.claude.json`:
+### Global MCP Server Architecture
+
+Claude Code communicates with the central multi-project hybrid server via `~/.claude.json`:
 
 ```json
 {
@@ -42,6 +46,10 @@ Claude Code connects to the central multi-project hybrid server via `~/.claude.j
 ```
 
 When Claude Code launches in `D:\Code\ash-rpg` or `D:\Code\ORAC`, `mcp_server.py` auto-detects the working directory and queries that project's dual vector store in `E:\Semantic_Coding\workspaces\`.
+
+> [!NOTE]
+> **Absolute Path Resolution:** `search_codebase` returns canonical absolute paths and clickable `file:///` URLs (e.g. `file:///D:/Code/ash-rpg/src/server/app.ts`), enabling Claude Code to directly read, edit, or diff target files without ambiguity or path reconciliation.
+> **Zero Plaintext Secrets:** Authentication with LM Studio is managed via Windows Credential Manager (`grepai-hybrid/lmstudio`), with child-only environment injection (`OPENAI_API_KEY`).
 
 ---
 

@@ -5,11 +5,10 @@ Exposes the Two-Stage Hybrid Search Engine (137M Text + 7B Code + Local Re-Rank)
 as a standard Model Context Protocol (MCP) server for Antigravity, Claude Code, and Codex.
 """
 
-import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+import sys
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -18,19 +17,27 @@ script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(script_dir))
 
 import hybrid_search
+import semcode.pipeline as pipeline
+import semcode.registry as registry
 
-# Initialize FastMCP Server
+# Initialize FastMCP Server with prompt instructions
 mcp = FastMCP(
     "grepai-hybrid",
+    instructions=(
+        "For conceptual 'where/how is X implemented' questions in an indexed project, "
+        "call search_codebase before Grep/Glob. Use Grep only for exact identifiers."
+    ),
     dependencies=["mcp"]
 )
 
-# Workspace directories
-DEFAULT_TEXT_DIR = str(script_dir / "repo-text")
-DEFAULT_CODE_DIR = str(script_dir / "repo-code")
 
-
-@mcp.tool()
+@mcp.tool(
+    description=(
+        "Deep semantic code search across indexed projects. Call this tool BEFORE Grep/Glob "
+        "for conceptual, algorithmic, architectural, or business logic questions (e.g. 'where is authentication handled?', "
+        "'how are retry backoffs implemented?'). Use Grep only for known exact identifier names."
+    )
+)
 def search_codebase(
     query: str,
     project: Optional[str] = None,
@@ -45,93 +52,46 @@ def search_codebase(
 
     Args:
         query: The search query (e.g. 'platform lock file verification' or 'throttle client queries').
-        project: Registered project name or absolute source path. Always pass this in multi-project clients; omitted values use the server process CWD, not the client's CWD.
-        limit: Max number of top code snippets to return (default: 5).
+        project: Optional registered project name or source path. Auto-resolves from caller directory if omitted.
+        limit: Max number of top code snippets to return (default: 5, max: 15).
         rerank: Set to True to enable Stage 2 local LLM cross-encoder re-ranking for strict false-positive filtering.
         feedback_file: Optional file path that was confirmed relevant, to log training triplets for fine-tuning.
 
     Returns:
-        Formatted markdown containing top matching code chunks, line numbers, scores, and relevance reasoning.
+        Formatted markdown containing top matching code chunks, absolute source paths, line numbers, scores, and links.
     """
     if not 1 <= limit <= 15:
         raise ValueError("limit must be between 1 and 15")
+
+    # Resolve project text_dir and code_dir (compatible with test harness monkey-patching)
     text_dir, code_dir, resolved_proj = hybrid_search.resolve_project_dirs(project=project)
-    bin_path = hybrid_search.find_binary()
-    token = hybrid_search.get_stored_credential("PraetorSilica/LMStudioDev")
-
-    # Load optimal hyperparameters
-    k_val = 5
-    w_text = 1.5
-    w_code = 0.5
-    optimal_file = script_dir / "benchmarks" / "optimal_params.json"
-    if optimal_file.is_file():
-        try:
-            with open(optimal_file, "r", encoding="utf-8") as f:
-                opt = json.load(f)
-                k_val = opt.get("k", 5)
-                w_text = opt.get("weight_text", 1.5)
-                w_code = opt.get("weight_code", 0.5)
-        except Exception:
-            pass
-
-    # Stage 1: Parallel Dense Retrieval
-    with hybrid_search.ThreadPoolExecutor(max_workers=2) as executor:
-        f_text = executor.submit(hybrid_search.run_single_search, bin_path, text_dir, query, 15)
-        f_code = executor.submit(hybrid_search.run_single_search, bin_path, code_dir, query, 15)
-        text_res = f_text.result()
-        code_res = f_code.result()
-
-    fused = hybrid_search.reciprocal_rank_fusion(
-        text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=max(10, limit)
-    )
-
-    # Stage 2: Local Re-ranking if requested
-    if rerank:
-        fused = hybrid_search.rerank_with_llm(
-            candidates=fused,
-            query=query,
-            token=token,
-            timeout=20
-        )
-
-    # Telemetry logging
+    source_path = None
     try:
-        from telemetry.collector import log_interaction
-        log_interaction(
-            query=query,
-            candidates=fused,
-            selected_file=feedback_file
-        )
+        reg = registry.load_registry()
+        if resolved_proj in reg:
+            source_path = reg[resolved_proj].get("source_path")
     except Exception:
         pass
 
-    results = fused[:limit]
-    if not results:
-        return f"No matching code snippets found for query: \"{query}\""
+    res = pipeline.execute_hybrid_search(
+        query=query,
+        project=resolved_proj,
+        text_dir=text_dir,
+        code_dir=code_dir,
+        limit=limit,
+        rerank=rerank,
+        feedback_file=feedback_file,
+    )
+    if source_path and not res.get("source_path"):
+        res["source_path"] = source_path
+        # Re-resolve absolute paths and URLs with source_path
+        for c in res.get("results", []):
+            rel_fp = str(c.get("file_path", "")).replace("/", "\\")
+            abs_fp = (Path(source_path) / rel_fp).resolve()
+            c["absolute_path"] = str(abs_fp)
+            c["file_url"] = f"file:///{str(abs_fp).replace(os.sep, '/')}"
 
-    # Format as clean markdown for AI agent ingestion
-    mode_str = "Hybrid RRF + Local Re-Rank" if rerank else f"Hybrid RRF (k={k_val}, wt={w_text:.1f}, wc={w_code:.1f})"
-    proj_tag = f" [Project: {resolved_proj}]" if resolved_proj != "default" else ""
-    output = [f"### grepai Hybrid Search Results: `{query}` ({mode_str}){proj_tag}\n"]
-
-    for idx, r in enumerate(results, 1):
-        fp = r["file_path"]
-        lines = f"L{r['start_line']}-{r['end_line']}"
-        score = r["rrf_score"]
-        t_rank = f"#{r['text_rank']}" if r.get("text_rank") else "miss"
-        c_rank = f"#{r['code_rank']}" if r.get("code_rank") else "miss"
-
-        header = f"#### {idx}. [{fp} ({lines})](file:///{fp}#L{r['start_line']}-L{r['end_line']})\n"
-        meta = f"- **RRF Score:** `{score:.4f}` | **Text Rank:** `{t_rank}` | **Code Rank:** `{c_rank}`"
-        if r.get("rerank_score") is not None:
-            meta += f" | **Re-Rank Score:** `{r['rerank_score']:.2f}`"
-        if r.get("rerank_reason"):
-            meta += f"\n- **Reasoning:** {r['rerank_reason']}"
-
-        snippet = f"\n```\n{r.get('content', '').strip()}\n```\n"
-        output.append(f"{header}{meta}\n{snippet}")
-
-    return "\n".join(output)
+    return pipeline.format_search_markdown(res)
 
 
 if __name__ == "__main__":

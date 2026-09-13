@@ -25,14 +25,33 @@ The system was conceived to solve the fundamental trade-off between lightweight 
 
 ```
 Semantic_Coding/
-├── bin/                                # Executables (excluded from Git)
-│   └── grepai.exe                      # Official grepai v0.37.0 Windows AMD64 binary
-├── grepai/                             # Cloned upstream testbed repository (excluded from Git)
-├── repo-text/                          # Test workspace indexed with 137M text model (excluded from Git)
-├── repo-code/                          # Test workspace indexed with 7B code model (excluded from Git)
+├── bin/                                # Standalone binaries (Windows AMD64)
+│   └── grepai.exe                      # Official grepai v0.37.0 Windows executable
+├── semcode/                            # Core production package
+│   ├── creds.py                        # Windows Credential Manager Advapi32 vault interface
+│   ├── grepai_runner.py                # Subprocess runner with child-only OPENAI_API_KEY injection
+│   ├── registry.py                     # Atomic JSON workspace registry with corruption guard
+│   ├── pipeline.py                     # Canonical RRF ranking with absolute paths and tie-breaking
+│   ├── indexer.py                      # Git-aware clean indexer with exclusion filters & sync
+│   ├── sync.py                         # Dual-index incremental sync runner
+│   ├── auto_index.py                   # Detached background worker for auto-indexing new repos
+│   └── doctor.py                       # 18-point comprehensive system diagnostic engine
+├── integrations/                       # Multi-agent hands-off integration layer
+│   ├── install.py                      # Idempotent integration installer (Claude, Codex, Antigravity)
+│   ├── instructions.md                 # Managed instruction block for coding assistants
+│   ├── hooks/                          # Claude Code hooks (prompt context injection, session start)
+│   └── skill/                          # Reusable agent skill (SKILL.md)
+├── config/                             # Runtime policies and configurations
+│   └── auto_index.json                 # Auto-index policy, thresholds, and deny-lists
+├── workspaces/                         # Multi-project dual-index storage (excluded from Git)
+│   ├── registry.json                   # Central project catalog and metadata
+│   ├── ORAC/                           # Dual indices for ORAC
+│   ├── ash-rpg/                        # Dual indices for ash-rpg
+│   ├── LDGM/                           # Dual indices for LDGM
+│   └── praetor_silica/                 # Dual indices for praetor_silica
 ├── templates/                          # Reusable grepai configuration templates
-│   ├── config.text.yaml                # LM Studio template for nomic-embed-text (768 dims)
-│   └── config.code.yaml                # LM Studio template for nomic-embed-code (4096 dims)
+│   ├── config.text.yaml                # LM Studio template for nomic-embed-text (no plaintext keys)
+│   └── config.code.yaml                # LM Studio template for nomic-embed-code (no plaintext keys)
 ├── benchmarks/                         # Evaluation, ground truth, and optimization
 │   ├── cases.json                      # 12 curated stress test queries across 4 IR categories
 │   ├── synthetic_cases.json            # Automatically extracted AST synthetic cases
@@ -41,22 +60,39 @@ Semantic_Coding/
 │   ├── generate_synthetic_cases.py     # AST-based synthetic benchmark expansion tool
 │   ├── tune_hyperparameters.py         # Grid search hyperparameter optimizer
 │   ├── live_benchmark_report.md        # Comprehensive report of live single-model test
-│   ├── live_benchmark_results.json     # Raw machine-readable live benchmark dataset
-│   ├── dry_run_report.md               # Dry-run validation report
-│   └── dry_run_results.json            # Dry-run verification data
+│   └── live_benchmark_results.json     # Raw machine-readable live benchmark dataset
+├── findings/                           # Automated security & architectural review audit reports
+│   ├── review_1_ash-rpg.md             # Ash-RPG mutation authority audit findings
+│   ├── review_2_ash-rpg.md             # Ash-RPG fog of war audit findings
+│   ├── review_3_ash-rpg.md             # Ash-RPG dice roll determinism audit findings
+│   ├── review_1_orac.md                # ORAC privilege enforcement audit findings
+│   ├── review_2_orac.md                # ORAC cross-sandbox leakage audit findings
+│   └── review_3_orac.md                # ORAC ledger tamper resistance audit findings
 ├── telemetry/                          # Usage tracking and training data mining
 │   ├── collector.py                    # Telemetry logger and hard-negative triplet extractor
-│   ├── triplets.jsonl                  # Active contrastive training dataset (anchor, pos, neg)
-│   └── interactions.jsonl              # Raw query and candidate logs (excluded from Git)
+│   └── triplets.jsonl                  # Active contrastive training dataset (anchor, pos, neg)
 ├── training/                           # Contrastive neural fine-tuning
-│   ├── train_cross_encoder.py          # PyTorch Margin Ranking Loss trainer
-│   └── checkpoints/                    # Model weights and vocab checkpoints (excluded from Git)
+│   └── train_cross_encoder.py          # PyTorch Margin Ranking Loss trainer (prototype)
+├── tests/                              # Automated regression test suite
+│   ├── test_no_plaintext_secrets.py    # Zero-plaintext-credential regression test
+│   ├── test_registry.py                # Workspace registry atomic write & corruption test
+│   ├── test_auto_index.py              # Background auto-indexing worker test
+│   ├── test_retrieval.py               # RRF pipeline and tie-breaking test
+│   └── test_harness.ps1                # Agent harness event parser test
+├── doctor.ps1                          # 1-click system diagnostics runner
+├── install_integrations.ps1            # 1-click agent integration installer
+├── index_project.ps1                   # Git-aware multi-project indexer wrapper
+├── sync_hybrid_indices.ps1             # Incremental sync wrapper
 ├── hybrid_search.py                    # Two-Stage Hybrid Search CLI & Agent Engine
-├── sync_hybrid_indices.ps1             # Continuous dual-index workspace file synchronizer
+├── mcp_server.py                       # FastMCP Stdio server with absolute path resolution
+├── run_security_audit.py               # Automated 6-case security audit benchmark runner
+├── run_agent_harness.ps1               # Read-only agent verification harness
 ├── run_benchmark.ps1                   # End-to-end single-model benchmark orchestrator
 ├── run_evaluation_pipeline.ps1         # Master continuous evaluation & flywheel runner
-├── index_code.ps1                      # Foreground batch indexing helper
-├── HYBRID_PIPELINE_PLAN.md             # Detailed Two-Stage architectural design document
+├── secure_credentials.py               # Windows Credential Manager CLI utility
+├── ASSESSMENT.md                       # Comprehensive security & harness assessment
+├── PLAN_hands_off_creds_remediation.md # Hands-off remediation specification
+├── HYBRID_PIPELINE_PLAN.md             # Historical hybrid pipeline architecture plan
 ├── SYSTEM_STATE.md                     # This technical reference document
 ├── README.md                           # Main repository documentation & guide
 ├── LICENSE                             # MIT License (Copyright 2026 kostchei)
@@ -116,9 +152,9 @@ Total Allocated: ~20.37 GB (Safe margin, zero disk paging)
 
 ---
 
-## 5. Master Command Reference
+### 5. Master Command Reference
 
-### A. Two-Stage Hybrid Search
+### A. Two-Stage Hybrid Search & Agent Frontends
 ```powershell
 # Interactive search using auto-loaded optimal parameters (k=5, wt=1.5, wc=0.5)
 python hybrid_search.py "parse abstract syntax trees for multiple programming languages" -n 3
@@ -126,20 +162,41 @@ python hybrid_search.py "parse abstract syntax trees for multiple programming la
 # With Stage 2 Local LLM Cross-Encoder Re-Ranking
 python hybrid_search.py "throttle client queries to stay within quota limits" --rerank -n 3
 
-# Output JSON for AI agents (Claude Code, Cursor, Windsurf, Antigravity)
+# Output JSON for AI agents (Claude Code, Codex, Antigravity)
 python hybrid_search.py "retry HTTP requests with exponential jitter" -j -n 5
 
 # Capture real interaction and mine training triplets
 python hybrid_search.py "throttle queries" --feedback-selected "embedder/rate_limiter.go" -n 3
 ```
 
-### B. Continuous Evaluation & Flywheel Automation
+### B. System Health & Integration Setup
+```powershell
+# 1-Click diagnostic health check across 18 system subsystems
+.\doctor.ps1
+
+# 1-Click hands-off integration installer for Claude Code, Codex, and Antigravity
+.\install_integrations.ps1
+
+# Verify agent autonomous retrieval in unprompted mode
+.\run_agent_harness.ps1 -Agent codex -ProjectPath E:\ORAC -Prompt "Find privilege enforcement" -Mode Unprompted
+```
+
+### C. Workspace Synchronization & Dual Indexing
+```powershell
+# Index any arbitrary git repository into the hybrid engine
+.\index_project.ps1 -ProjectPath "E:\ORAC"
+
+# Incremental synchronization (detects additions, modifications, and deletions)
+.\sync_hybrid_indices.ps1 -Project ORAC -Once
+```
+
+### D. Continuous Evaluation & Flywheel Automation
 ```powershell
 # Run the complete end-to-end evaluation flywheel in one command
 .\run_evaluation_pipeline.ps1
 
-# Generate synthetic benchmark cases from source code AST
-python benchmarks\generate_synthetic_cases.py --code-dir grepai --max-files 20
+# Run the automated 6-case security audit benchmark across ash-rpg and ORAC
+python run_security_audit.py
 
 # Run hyperparameter grid search optimizer
 python benchmarks\tune_hyperparameters.py --cases benchmarks\cases.json --text-dir repo-text --code-dir repo-code
@@ -148,16 +205,7 @@ python benchmarks\tune_hyperparameters.py --cases benchmarks\cases.json --text-d
 python benchmarks\benchmark.py --text-dir repo-text --code-dir repo-code --hybrid
 ```
 
-### C. Workspace Synchronization & Dual Indexing
-```powershell
-# Continuous watcher mirroring code edits and updating both indices
-.\sync_hybrid_indices.ps1 -SourceDir .\grepai -TextRepo .\repo-text -CodeRepo .\repo-code
-
-# Single-pass index reconciliation
-.\sync_hybrid_indices.ps1 -Once
-```
-
-### D. Telemetry & Fine-Tuning
+### E. Telemetry & Fine-Tuning
 ```powershell
 # Check telemetry volume and extracted training triplets
 python telemetry\collector.py --status
@@ -165,7 +213,7 @@ python telemetry\collector.py --status
 # Export deduplicated contrastive training dataset
 python telemetry\collector.py --export telemetry\export_triplets.json
 
-# Train lightweight neural re-ranking model using Margin Ranking Loss
+# Train lightweight neural re-ranking model using Margin Ranking Loss (prototype)
 python training\train_cross_encoder.py --epochs 5 --lr 0.001 --margin 0.5
 ```
 
@@ -199,7 +247,9 @@ The Two-Stage Hybrid Engine is exposed via standard Model Context Protocol (Fast
 │             FastMCP Stdio Server (mcp_server.py)            │
 │  - Tool: search_codebase(query, limit, rerank, feedback)    │
 │  - Auto-loads optimal RRF params (k=5, wt=1.5, wc=0.5)      │
-│  - Secure Windows Credential Store integration (Zero leaks) │
+│  - Returns absolute file paths & clickable file:/// URIs    │
+│  - Deterministic tie-breaking (-rrf_score, path, line)      │
+│  - Dynamic CWD project resolution via workspaces/registry   │
 └──────────────────────────────┬──────────────────────────────┘
                                │
             ┌──────────────────┴──────────────────┐
@@ -210,78 +260,74 @@ The Two-Stage Hybrid Engine is exposed via standard Model Context Protocol (Fast
 └───────────────────────────┘         └───────────────────────┘
 ```
 
-### 1. Claude Code
-- **Configuration File:** `~/.claude.json` (under `mcpServers`)
-- **Registration Command:**
-  ```powershell
-  claude mcp add --scope user grepai-hybrid -- python e:\Semantic_Coding\mcp_server.py
-  ```
-- **Verification:** Run `claude mcp list` -> reports `grepai-hybrid: python e:\Semantic_Coding\mcp_server.py - √ Connected`.
-- **Usage:** Claude Code automatically calls `search_codebase` when searching for code or algorithms, or when asked:
-  > `"Use grepai-hybrid to find how rate limiting and token bucket are implemented."`
+### 1. Hands-Off 1-Click Installer (`install_integrations.ps1`)
+Configures all environments idempotently with managed instruction blocks:
+- **Claude Code:**
+  - FastMCP registration in `~/.claude.json`.
+  - Prompt context hooks (`~/.claude/hooks/prompt_context.py`) for automatic query injection.
+  - Managed instruction block in `~/.claude/CLAUDE.md`.
+- **OpenAI Codex:**
+  - MCP registration in `~/.codex/config.toml`.
+  - Managed instruction block in `~/.codex/AGENTS.md`.
+- **Google Antigravity:**
+  - Global MCP tool in `~/.gemini/antigravity/mcp/grepai-hybrid/`.
+  - Native agent skill in `.gemini/skills/grepai-hybrid/SKILL.md`.
 
-### 2. OpenAI Codex Desktop App
-- **Configuration File:** `C:\Users\Admin\.codex\config.toml`
-- **Configuration Entry:**
-  ```toml
-  [mcp_servers.grepai_hybrid]
-  command = "python"
-  args = ["e:\\Semantic_Coding\\mcp_server.py"]
-  ```
-- **Usage:** Codex invokes `grepai_hybrid.search_codebase` with full argument schema support.
-
-### 3. Antigravity IDE & Agent
-- **Native Skill:** `.gemini/skills/grepai-hybrid/SKILL.md` in repository root.
-- **Global MCP Server Definition:**
-  - `C:\Users\Admin\.gemini\antigravity\mcp\grepai-hybrid\search_codebase.json`
-  - `C:\Users\Admin\.gemini\antigravity\mcp\grepai-hybrid\instructions.md`
-  - `C:\Users\Admin\.gemini\antigravity-ide\mcp\grepai-hybrid\search_codebase.json`
-- **CLI Shell Wrapper:** `bin\grepai-hybrid.cmd` accessible directly from terminal.
-
-### 4. Zero Credential Leak Guarantee
-- All authentication with local embedding daemons (LM Studio) uses Windows Credential Manager (`PraetorSilica/LMStudioDev`) or local environment variables resolved dynamically in memory at runtime.
-- No bearer tokens, passwords, or private keys are written to configuration files or git-tracked trees.
+### 2. Zero Credential Leak Guarantee (Windows Credential Manager)
+- Sole source of truth for LM Studio authentication is Windows Credential Manager under `grepai-hybrid/lmstudio` (User: `lmstudio`).
+- Generic credential reader/writer (`semcode.creds`) uses Windows Native `Advapi32.dll` (`CredReadW` / `CredWriteW`), supporting UTF-8 and UTF-16LE without corrupting tokens.
+- All 10 `.grepai/config.yaml` files have `api_key: ""` (empty).
+- During indexing and querying, `semcode.grepai_runner` resolves the token from Windows Credential Manager and injects it strictly into the child process environment as `OPENAI_API_KEY`. No secrets are exposed on disk, in CLI flags, or in log files.
 
 ---
 
-## 8. Multi-Project Hybrid Indexing & Real-World Validation
+## 8. Multi-Project Hybrid Indexing & Production Workspaces
 
 To support arbitrary production codebases without tree pollution or file conflicts, `grepai-hybrid` features a centralized multi-project workspace architecture:
 
 ### Architecture
-- **Pristine Source Repositories:** Target repositories (e.g. `E:\praetor_silica`, `E:\proj\LDGM`) remain 100% clean and untouched.
-- **Central Registry:** Managed in `workspaces/registry.json` mapping project identifiers to dual-index paths and source paths.
+- **Pristine Source Repositories:** Target repositories remain 100% clean and untouched.
+- **Atomic Registry:** Managed in `workspaces/registry.json` with schema validation and temp-file atomic replacement to prevent corruption.
 - **Git-Ignored Workspaces:** All project embeddings and local configuration files reside under `workspaces/<project_name>/` (strictly excluded via `.gitignore`).
 - **Dynamic CWD Resolution:** When Claude Code, Codex, or Antigravity executes in any indexed repository, the MCP server automatically detects the current directory and routes searches to that project's dual indices.
+- **Clean Git Mirroring:** `semcode.indexer` mirrors files using `git ls-files -z --cached --others --exclude-standard`, enforcing mandatory exclusions for `.claude`, `.codex`, `.gemini`, `.grepai`, submodules, and worktrees.
+- **Graceful Daemon Completion:** Detects `grepai watch` stdout signal `Initial scan complete: ...` and terminates cleanly instead of polling disk size and hard-killing.
 
-### Empirical Validation on Real Projects
+### Production Validated Projects
 
-#### Project 1: `praetor_silica` (Python / TypeScript / AI Agent Infrastructure)
-- **Files Indexed:** 457 source files (6,311 code chunks)
-- **Text Index (137M):** 36.5 MB (`workspaces/praetor_silica/repo-text`)
-- **Code Index (7B):** 138.5 MB (`workspaces/praetor_silica/repo-code`)
-- **Query Verification:**
-  - *"verify LM Studio setup and authentication"* -> Rank #1: `src/praetor_silica/runtime/lmstudio_dev.py` (RRF: 0.3333, Text #1, Code #1).
-  - *"platform lock file verification and path traversal prevention"* -> Rank #1: `tools/resolve_platform.py` (RRF: 0.2708).
+| Project | Domain / Languages | Tracked Files | Dual-Index Size | Verified Query Seam |
+| :--- | :--- | :--- | :--- | :--- |
+| **ORAC** | Autonomous Agent Governance (Python, Shell) | 193 files | ~30 MB | Privilege enforcement & sandbox gates |
+| **ash-rpg** | Multiplayer Tabletop (TypeScript, Express) | 150 files | ~22 MB | Mutation authority & fog-of-war |
+| **praetor_silica** | Agent Infrastructure (Python, TS) | 457 files | ~175 MB | LM Studio setup & platform locks |
+| **LDGM** | Vehicle Physics Sim (C++, CMake) | 191 files | ~9.7 MB | CMake presets & ChronoVehicle gem |
 
-#### Project 2: `LDGM` (C++ / CMake / Game Simulation Engine)
-- **Files Indexed:** 191 source files
-- **Text Index (137M):** 2.0 MB (`workspaces/LDGM/repo-text`)
-- **Code Index (7B):** 7.7 MB (`workspaces/LDGM/repo-code`)
-- **Query Verification:**
-  - *"CMake presets and target dependencies"* -> Rank #1: `Gems/LDMChronoVehicle/Code/CMakeLists.txt`, Rank #2: `CMakePresets.json` (Code #1).
-  - *"vehicle physics simulation component or chrono vehicle gem"* -> Rank #1: `Gems/LDMChronoVehicle/gem.json` (RRF: 0.2500).
+---
 
-### Command Reference for New Projects
-```powershell
-# Index any arbitrary project into the hybrid engine
-.\index_project.ps1 -ProjectPath "C:\Path\To\Project" -ProjectName "my_project"
+## 9. Automatic Indexing of New Repositories (`semcode.auto_index`)
 
-# Search a specific project
-python hybrid_search.py "my query" --project my_project -n 5
+When an AI agent or developer navigates to an unindexed git repository:
+1. **Eligibility Evaluation:** `semcode.auto_index.check_eligibility()` verifies that the target path is a git repository, does not match deny patterns in `config/auto_index.json` (e.g. `node_modules`, `AppData`, `.git`), and has fewer tracked files than `max_file_count` (default: 5,000).
+2. **Atomic Registration:** Registers the project into `workspaces/registry.json`.
+3. **Detached Background Execution:** Spawns a detached background worker running `semcode.auto_index` to index both 137M text and 7B code indices asynchronously.
+4. **Job Status Tracking:** Writes job status and progress to `workspaces/<project>/job.json` (`indexing`, `complete`, `failed`).
 
-# Synchronize modifications from a project
-.\sync_hybrid_indices.ps1 -Project my_project -Once
-```
+---
+
+## 10. 18-Point System Diagnostic Doctor (`doctor.ps1`)
+
+The diagnostics engine (`semcode.doctor`) validates the complete operational chain:
+1. Python runtime and `mcp` / `semcode` import sanity
+2. `grepai.exe` binary accessibility & version verification
+3. Windows Credential Manager target `grepai-hybrid/lmstudio` exists and is non-empty
+4. LM Studio API connectivity on `http://127.0.0.1:1234/v1/models`
+5. LM Studio embeddings generation test call with authenticated header
+6. Workspace registry (`workspaces/registry.json`) schema validation & corruption check
+7-10. Dual index directory and config integrity for ORAC, ash-rpg, praetor_silica, LDGM
+11-14. Git tracking and exclusion rules for all registered projects
+15. FastMCP server initialization test (`mcp_server.py`)
+16. Claude Code integration (`~/.claude.json`, hooks, instructions)
+17. OpenAI Codex integration (`~/.codex/config.toml`, instructions)
+18. Antigravity IDE integration (global MCP definition, skills)
 
 

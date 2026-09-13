@@ -92,6 +92,12 @@ if (-not $ApiToken) {
     }
 }
 
+if ($ApiToken) {
+    # Inject into this process's environment only (inherited by grepai/python child
+    # processes below) so the token never has to be written to config.yaml on disk.
+    $env:OPENAI_API_KEY = $ApiToken
+}
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "       grepai Embedding Model Benchmark Runner            " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
@@ -144,7 +150,8 @@ function Prepare-TestRepo([string]$targetDir, [string]$modelName, [int]$dims, [s
     $dotGrepai = Join-Path $targetDir ".grepai"
     New-Item -ItemType Directory -Force -Path $dotGrepai | Out-Null
 
-    # If an API token is present, we configure using the 'openai' provider which passes the Bearer token
+    # api_key is always left empty; the token (if any) is injected as OPENAI_API_KEY
+    # into the grepai child process environment instead of being written to disk.
     if ($token) {
         $configContent = @"
 version: 1
@@ -152,7 +159,7 @@ embedder:
   provider: openai
   model: $modelName
   endpoint: $LMStudioUrl/v1
-  api_key: $token
+  api_key: ""
   dimensions: $dims
   parallelism: 2
   request_timeout_seconds: 120

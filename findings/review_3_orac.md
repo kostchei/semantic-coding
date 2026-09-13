@@ -2,7 +2,7 @@
 
 **Target Project:** `ORAC`
 **Query Used:** `compensating actions physical emergency stop uninvertible tool drift`
-**Retrieval Latency:** 291.6 ms
+**Retrieval Latency:** 209.7 ms
 **Description:** Verifies that uninvertible physical and external actions require approval-first gating, cooldowns, and emergency stop.
 
 ## Discovered Architectural & Security Seams
@@ -19,32 +19,7 @@ File: src\orac\prompts\operator.md
 - Reversibility and Rollback: Compensating actions are generated only when the device explicitly supports a defined inverse; never guess an inverse.
 ```
 
-### Hit [2]: `docs\compensating-actions.md` (Lines 1-31)
-
-- **RRF Score:** 0.2589 (Text Rank: 3, Code Rank: 2)
-
-```
-File: docs\compensating-actions.md
-
-# Compensating Actions
-
-ORAC's `rollback` command must describe an honest inverse, not merely a second
-action that might make the situation look similar. Git has a strong inverse:
-`git.revert` records a new commit that undoes a known commit. Other tools need
-an explicit compensation contract before they can use review-after.
-
-## Contract carried by a completed action
-
-A mutating adapter that can be compensated returns this object in its result
-data, which is then preserved verbatim in the durable notification:
-
-```json
-{
-  "rollback_contract": {
-    "version
-```
-
-### Hit [3]: `docs\physical-plan.md` (Lines 62-78)
+### Hit [2]: `docs\physical-plan.md` (Lines 62-78)
 
 - **RRF Score:** 0.2527 (Text Rank: 2, Code Rank: 8)
 
@@ -60,6 +35,24 @@ File: docs\physical-plan.md
   block):
   - `physical.list_entities`, `physical.read_state` → `(REVERSIBLE, LOCAL)` → AUTO
     (rea
+```
+
+### Hit [3]: `docs\compensating-actions.md` (Lines 29-48)
+
+- **RRF Score:** 0.2381 (Text Rank: 4, Code Rank: 2)
+
+```
+File: docs\compensating-actions.md
+
+2. The compensation tool is registered, risk-classified, and allow-listed for
+   the human principal; notification data cannot introduce an arbitrary tool.
+3. Required identity and pre-state fields are present and schema-valid.
+4. `expected_state` still matches. Drift fails closed and asks for manual
+   reconciliation instead of applying a stale inverse.
+5. The contract has not expired. A missing expiry means the adapter asserts the
+   inverse remains meaningful indefinitely.
+6. The compensation request passes the normal risk throttle. A physical,
+   financi
 ```
 
 ### Hit [4]: `src\orac\tools\catalog.json` (Lines 360-370)
@@ -82,23 +75,28 @@ File: src\orac\tools\catalog.json
 }
 ```
 
-### Hit [5]: `src\orac\physical_adapters.py` (Lines 457-483)
+### Hit [5]: `docs\compensating-actions.md` (Lines 1-31)
 
-- **RRF Score:** 0.1771 (Text Rank: 11, Code Rank: 1)
+- **RRF Score:** 0.1875 (Text Rank: 3, Code Rank: None)
 
 ```
-File: src\orac\physical_adapters.py
+File: docs\compensating-actions.md
 
-                domain = dev.entity_id.split(".")[0] if "." in dev.entity_id else "homeassistant"
-                try:
-                    self.backend.call_service(domain=domain, service="turn_off", entity_id=dev.entity_id)
-                    self.store.record_action(
-                        task_id=req.task_id,
-                        device_id=dev.id,
-                        action_type="emergency_stop",
-                        details={"entity_id": dev.entity_id},
-                    )
-                    stopped.append(dev.id)
-                except E
+# Compensating Actions
+
+ORAC's `rollback` command must describe an honest inverse, not merely a second
+action that might make the situation look similar. Git has a strong inverse:
+`git.revert` records a new commit that undoes a known commit. Other tools need
+an explicit compensation contract before they can use review-after.
+
+## Contract carried by a completed action
+
+A mutating adapter that can be compensated returns this object in its result
+data, which is then preserved verbatim in the durable notification:
+
+```json
+{
+  "rollback_contract": {
+    "version
 ```
 

@@ -40,6 +40,17 @@ class RetrievalTests(unittest.TestCase):
                         search.resolve_project_dirs(project=target)
                 self.assertEqual(search.resolve_project_dirs(text_dir='a', code_dir='b'), ('a', 'b', 'explicit'))
 
+    def test_unknown_cwd_raises_without_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'workspaces').mkdir()
+            (root / 'workspaces/registry.json').write_text('{}')
+            with patch.object(search, '__file__', str(root / 'hybrid_search.py')), \
+                 patch('os.getcwd', return_value=str(root / 'unknown_repo')):
+                with self.assertRaises(ValueError) as ctx:
+                    search.resolve_project_dirs()
+                self.assertIn("does not match any registered project", str(ctx.exception))
+
     def test_fusion_ties_are_deterministic(self):
         a = {'file_path': 'a.py'}
         b = {'file_path': 'b.py'}

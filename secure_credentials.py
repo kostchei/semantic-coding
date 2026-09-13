@@ -1,74 +1,25 @@
 """Store Claude OAuth in Windows Credential Manager; inject only into CLI children."""
 import argparse
-import ctypes
 import getpass
 import os
 import re
 import shutil
 import subprocess
 import sys
-from ctypes import wintypes
 
-TARGET = "SemanticCoding/ClaudeCodeOAuth"
+import semcode.creds as creds
 
-
-class Credential(ctypes.Structure):
-    _fields_ = [
-        ("Flags", wintypes.DWORD), ("Type", wintypes.DWORD),
-        ("TargetName", wintypes.LPWSTR), ("Comment", wintypes.LPWSTR),
-        ("LastWritten", wintypes.FILETIME), ("CredentialBlobSize", wintypes.DWORD),
-        ("CredentialBlob", ctypes.POINTER(ctypes.c_byte)), ("Persist", wintypes.DWORD),
-        ("AttributeCount", wintypes.DWORD), ("Attributes", ctypes.c_void_p),
-        ("TargetAlias", wintypes.LPWSTR), ("UserName", wintypes.LPWSTR),
-    ]
-
-
-def api():
-    if os.name != "nt":
-        raise RuntimeError("This credential store requires Windows")
-    dll = ctypes.WinDLL("Advapi32.dll", use_last_error=True)
-    dll.CredReadW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
-                             ctypes.POINTER(ctypes.POINTER(Credential))]
-    dll.CredReadW.restype = wintypes.BOOL
-    dll.CredWriteW.argtypes = [ctypes.POINTER(Credential), wintypes.DWORD]
-    dll.CredWriteW.restype = wintypes.BOOL
-    dll.CredFree.argtypes = [ctypes.c_void_p]
-    dll.CredFree.restype = None
-    return dll
+TARGET = creds.TARGET_CLAUDE
+Credential = creds.Credential
+api = creds._get_advapi32
 
 
 def read_token():
-    dll = api()
-    pointer = ctypes.POINTER(Credential)()
-    if not dll.CredReadW(TARGET, 1, 0, ctypes.byref(pointer)):
-        error = ctypes.get_last_error()
-        if error == 1168:
-            return None
-        raise ctypes.WinError(error)
-    try:
-        return ctypes.string_at(pointer.contents.CredentialBlob,
-                                pointer.contents.CredentialBlobSize).decode("utf-8")
-    finally:
-        dll.CredFree(pointer)
+    return creds.read_credential(TARGET)
 
 
 def store_token(token):
-    if not token or any(c.isspace() for c in token):
-        raise ValueError("Expected a nonempty token without whitespace")
-    blob = token.encode("utf-8")
-    if len(blob) > 2560:
-        raise ValueError("Token exceeds Windows generic credential size limit")
-    buffer = ctypes.create_string_buffer(blob)
-    credential = Credential()
-    credential.Type = 1
-    credential.TargetName = TARGET
-    credential.CredentialBlobSize = len(blob)
-    credential.CredentialBlob = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_byte))
-    credential.Persist = 2  # Persists for this Windows user on this machine.
-    credential.UserName = "Claude Code OAuth"
-    dll = api()
-    if not dll.CredWriteW(ctypes.byref(credential), 0):
-        raise ctypes.WinError(ctypes.get_last_error())
+    creds.store_credential(TARGET, token, user_name="Claude Code OAuth")
 
 
 def main():

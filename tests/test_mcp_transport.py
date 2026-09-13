@@ -18,14 +18,15 @@ class TransportTests(unittest.TestCase):
 import sys
 sys.path.insert(0, {str(root)!r})
 import mcp_server
+import semcode.grepai_runner as grepai_runner
 engine = mcp_server.hybrid_search
-original_run = engine.subprocess.run
+original_run = grepai_runner.subprocess.run
 def fake_search(command, **kwargs):
     kwargs['timeout'] = 2
     return original_run([sys.executable, '-c', "import sys; sys.stdin.read(); print('[]')"], **kwargs)
-engine.subprocess.run = fake_search
-engine.find_binary = lambda: 'fixture'
-engine.get_stored_credential = lambda *a: ''
+grepai_runner.subprocess.run = fake_search
+grepai_runner.find_binary = lambda *a, **kw: 'fixture'
+grepai_runner.get_lmstudio_token = lambda: ''
 engine.resolve_project_dirs = lambda **kw: ({directory!r}, {directory!r}, 'fixture')
 import telemetry.collector
 telemetry.collector.log_interaction = lambda **kw: None

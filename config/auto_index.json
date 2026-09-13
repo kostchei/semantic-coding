@@ -1,0 +1,15 @@
+{
+  "max_files": 5000,
+  "roots": [
+    "D:\\Code",
+    "E:\\proj"
+  ],
+  "max_commit_age_days": 30,
+  "deny_patterns": [
+    "^[A-Za-z]:\\\\$",
+    "^[A-Za-z]:\\\\Windows",
+    "^[A-Za-z]:\\\\Users\\\\[^\\\\]+$",
+    "^[A-Za-z]:\\\\Program Files",
+    "^[A-Za-z]:\\\\AppData"
+  ]
+}

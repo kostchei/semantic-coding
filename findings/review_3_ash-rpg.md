@@ -2,14 +2,14 @@
 
 **Target Project:** `ash-rpg`
 **Query Used:** `transaction sqlite concurrency state revision race condition`
-**Retrieval Latency:** 309.3 ms
+**Retrieval Latency:** 313.0 ms
 **Description:** Verifies atomic database transactions, state revision increments, and replay rejection on identical actionId.
 
 ## Discovered Architectural & Security Seams
 
 ### Hit [1]: `docs\plans\product_quality_engineering_plan.md` (Lines 220-236)
 
-- **RRF Score:** 0.2778 (Text Rank: 1, Code Rank: 13)
+- **RRF Score:** 0.2750 (Text Rank: 1, Code Rank: 15)
 
 ```
 File: docs\plans\product_quality_engineering_plan.md
@@ -53,7 +53,24 @@ File: src\server\database.ts
           "SELECT resul
 ```
 
-### Hit [3]: `docs\table_companion.md` (Lines 93-99)
+### Hit [3]: `docs\plans\product_quality_engineering_plan.md` (Lines 211-221)
+
+- **RRF Score:** 0.2153 (Text Rank: 3, Code Rank: 13)
+
+```
+File: docs\plans\product_quality_engineering_plan.md
+
+5. **Scroll containment.** Every independently scrolling region gets `overscroll-behavior: contain` so a flick inside the initiative list never rubber-bands the page behind it.
+
+### F. Session continuity
+
+A table session runs for hours across screen locks, Wi-Fi handoffs, and a phone in a pocket. Requirements:
+
+1. **Resume, never reload.** On reconnect the client sends its last known per-slice revisions; the server replies with the slices that moved. A full snapshot is sent only when the gap is too large to patch.
+2. **Honest connect
+```
+
+### Hit [4]: `docs\table_companion.md` (Lines 93-99)
 
 - **RRF Score:** 0.2143 (Text Rank: 2, Code Rank: None)
 
@@ -65,35 +82,27 @@ The React/Vite client provides responsive host and phone surfaces. Express serve
 Device tokens reconnect phones to their character and remain in browser storage. They are not campaign data. Host authorization uses a random server token recovered with the campaign PIN; the PIN itself is stored only as a salted sc
 ```
 
-### Hit [4]: `tests\multiplayer-mutations.test.ts` (Lines 217-235)
+### Hit [5]: `src\server\database.ts` (Lines 1591-1626)
 
-- **RRF Score:** 0.1709 (Text Rank: 8, Code Rank: 4)
-
-```
-File: tests\multiplayer-mutations.test.ts
-
-    // Replay call with same actionId
-    const res2 = db.executeMutation(campaignId, hostToken, "act-replay-test", undefined, mutate);
-    expect(res2.result.count).toBe(1);
-    expect(executionCount).toBe(1); // Not executed again!
-  });
-
-  it("preserves action receipts across database restart", () => {
-    const { campaignId, hostToken } = db.createCampaign("Restart", "Borderlands", "1234", {
-      selection: { mode: "single", zoneId: "the_gloaming" }, legacy: true,
-    });
-    const first = db.executeMutation(campaignId, hostToken, "persisted-acti
-```
-
-### Hit [5]: `docs\oracles\10_connected_path_encounters.md` (Lines 35-40)
-
-- **RRF Score:** 0.1667 (Text Rank: 4, Code Rank: None)
+- **RRF Score:** 0.1875 (Text Rank: 7, Code Rank: 3)
 
 ```
-File: docs\oracles\10_connected_path_encounters.md
+File: src\server\database.ts
 
-The [engine](https://github.com/kostchei/ash-rpg/blob/main/src/server/paths/encounters/engine.ts) maintains separate known and visited sites, clue provenance, facts, completed actions, resolved groups, materials, accepted/released benefit history, work minutes, victories, Toll, and a journal. These records support the different authored mechanics; they are not a generic Doom track.
-
-The [service](https://github.com/kostchei/ash-rpg/blob/main/src/server/paths/encounters/service.ts) stores definitions and state in SQLite's `path_encounter_pac
+        return {
+          result: JSON.parse(existingReceipt.result_json) as T,
+          revision: campaignRow?.revision ?? 1,
+        };
+      }
+
+      // 2. Revision check
+      const campaignRow = this.db
+        .prepare("SELECT revision FROM campaigns WHERE id = ?")
+        .get(campaignId) as { revision: number } | undefined;
+      const currentRevision = campaignRow?.revision ?? 1;
+
+      if (expectedRevision !== undefined && expectedRevision !== currentRevision) {
+        throw new Error(
+          `State revision conflict: expected revision ${expectedRe
 ```
 

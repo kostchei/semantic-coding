@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
+[EXPERIMENTAL PROTOTYPE]
 Contrastive Ranking Trainer for grepai
-Trains a neural re-ranking model using Margin Ranking Loss on
+Trains a prototype neural re-ranking model using Margin Ranking Loss on
 (anchor: query, positive: true_code, negative: hard_distractor) triplets collected via telemetry.
+Note: In production, Stage 2 re-ranking uses local LLMs in LM Studio via semcode.pipeline.
 """
 
 import argparse

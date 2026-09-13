@@ -2,14 +2,14 @@
 
 **Target Project:** `ash-rpg`
 **Query Used:** `mutation authority caller privilege verification action receipt`
-**Retrieval Latency:** 533.3 ms
+**Retrieval Latency:** 317.7 ms
 **Description:** Verifies that player socket connections cannot forge caller mutations or bypass action receipt idempotency locks.
 
 ## Discovered Architectural & Security Seams
 
 ### Hit [1]: `docs\plans\path_campaign_engineering.md` (Lines 94-103)
 
-- **RRF Score:** 0.2750 (Text Rank: 1, Code Rank: 15)
+- **RRF Score:** 0.2500 (Text Rank: 1, Code Rank: None)
 
 ```
 File: docs\plans\path_campaign_engineering.md
@@ -82,15 +82,17 @@ export const RECEIPTED_ACTIONS = new Set([
   "combat:de
 ```
 
-### Hit [5]: `docs\plans\table_companion_mvp.md` (Lines 47-54)
+### Hit [5]: `docs\oracles\10_connected_path_encounters.md` (Lines 49-55)
 
-- **RRF Score:** 0.1652 (Text Rank: 11, Code Rank: 2)
+- **RRF Score:** 0.1500 (Text Rank: 5, Code Rank: None)
 
 ```
-File: docs\plans\table_companion_mvp.md
+File: docs\oracles\10_connected_path_encounters.md
 
-Players talk before the caller commits a shared decision. No voting system is needed. A phone can inspect a destination without moving the party. Tavern/camp choices remain visible and editable until committed; the caller can explicitly resolve with missing players resting rather than requiring every device to stay connected.
+Future integration should bind each site to persistent regional coordinates, feed its sources into the existing tavern leads, send groups directly into combat, and apply inventory/time/character effects through the existing authoritative services. Full campaign adapters must additionally supply their level 1–10 content and XP audits. Those capabilities are not implied by the encounter packs being selectable.
 
-Use a shared mutation contract for consequential actions: `actionId`, an appropriate expected revision, and a validated payload. Authenticate ownership/capabilities on the server. Persist each mutation, its audit entry, and its 
+## Verification
+
+[Content and persistence tests](https://github.com/kostchei/ash-rpg/blob/main/tests/path-encounters.test.ts) exerc
 ```
 

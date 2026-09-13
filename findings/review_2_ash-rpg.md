@@ -2,7 +2,7 @@
 
 **Target Project:** `ash-rpg`
 **Query Used:** `information fog of war secret room monsters traps public projection`
-**Retrieval Latency:** 308.3 ms
+**Retrieval Latency:** 324.1 ms
 **Description:** Verifies that room features, trap triggers, and hidden monster statistics are stripped before public projection broadcasts.
 
 ## Discovered Architectural & Security Seams
@@ -35,9 +35,20 @@ For example, rescuing a companion in exchange for a public accusation can both s
 **Monster jobs.** Nightgaunts abduct witnesses; flying polyps isolate people or conceal a withdrawal; hunting horrors intercept couriers and escort the prize. Track captured people and paper
 ```
 
-### Hit [3]: `src\server\room-features.ts` (Lines 36-47)
+### Hit [3]: `zones\city_of_masks\lore.md` (Lines 28-29)
 
-- **RRF Score:** 0.1917 (Text Rank: 5, Code Rank: 7)
+- **RRF Score:** 0.1875 (Text Rank: 3, Code Rank: None)
+
+```
+File: zones\city_of_masks\lore.md
+
+3. **The Mask Plague and Conspiracy**: A virulent contagion led the nobility to mandate decorative persona masks, which soon hid rampant political murder.
+4. **Duelists in the Shadows**: The Shroud, the Bardic College, and the Duke's Guard clash in clandestine street warfare.
+```
+
+### Hit [4]: `src\server\room-features.ts` (Lines 36-47)
+
+- **RRF Score:** 0.1813 (Text Rank: 5, Code Rank: 11)
 
 ```
 File: src\server\room-features.ts
@@ -49,17 +60,6 @@ File: src\server\room-features.ts
       minor_hazard: "A local obstacle threatens a delay or a limited resource loss. Establish its nature at the table.",
       solo_monster: "A lone creature occupies this area. Determine its activity and reaction.",
       npc: "Someone is here with the
-```
-
-### Hit [4]: `zones\city_of_masks\lore.md` (Lines 28-29)
-
-- **RRF Score:** 0.1875 (Text Rank: 3, Code Rank: None)
-
-```
-File: zones\city_of_masks\lore.md
-
-3. **The Mask Plague and Conspiracy**: A virulent contagion led the nobility to mandate decorative persona masks, which soon hid rampant political murder.
-4. **Duelists in the Shadows**: The Shroud, the Bardic College, and the Duke's Guard clash in clandestine street warfare.
 ```
 
 ### Hit [5]: `docs\adventure_paths\01_domains_of_dread.md` (Lines 197-223)

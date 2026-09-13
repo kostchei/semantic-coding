@@ -1,20 +1,24 @@
-# Binary tools directory - only track the wrapper script
+# Binary tools directory - only track wrapper scripts and docs
 bin/*
 !bin/grepai-hybrid.cmd
+!bin/README.md
+!bin/CHANGELOG.md
+!bin/LICENSE
 *.exe
 
-# grepai metadata directories (may contain local config tokens)
+# grepai metadata directories and indices
 .grepai/
 **/.grepai/
+*.gob
 
-# Upstream testbed repository (cloned dynamically during setup/run)
+# Upstream testbed repository
 grepai/
 
-# Test workspaces with local configs (may contain local tokens) and large gob indices
+# Test workspaces and mirrors
 repo-text/
 repo-code/
 workspaces/
-*.gob
+!workspaces/registry.json
 
 # Python cache & virtual environments
 __pycache__/
@@ -24,15 +28,20 @@ venv/
 
 # Environment files and credentials
 .env
+.env.*
 *token*
 *secret*
 
-# Training checkpoints and weights
+# Benchmark outputs and backups
+benchmark_results.json
+benchmarks/*results*.json
+*.bak
+
+# Training checkpoints and telemetry
 training/checkpoints/
 *.pt
-
-# Telemetry raw logs
 telemetry/interactions.jsonl
+telemetry/triplets.jsonl
 harness-results/
 
 # OS artifacts

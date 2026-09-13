@@ -40,16 +40,20 @@ testing found and fixed two additional integration failures:
   was updated to 0.154.0. The next run exposed missing headless tool approval;
   the harness now approves only `grepai_hybrid.search_codebase` for that invocation.
   A full live ORAC run then called MCP, read a returned file, and completed successfully.
+  *Note:* This was an **instructed** run where the harness prompt explicitly instructed
+  the agent to call `search_codebase` with a restricted toolset on an already-indexed
+  repo; it verified headless MCP execution and tool connectivity, not unprompted hands-off adoption.
 
 Claude Desktop was running its own Claude Code executable (2.1.266); the npm CLI
 used by the harness had no credentials. Secure setup now stores its inference
 token in Windows Credential Manager and supplies it to child CLI processes only.
 A live Claude ORAC run authenticated, called MCP, read `src/orac/broker.py`, and
-completed successfully. The earlier ordinary login's newly issued access/refresh
-credentials were also secured in Credential Manager and removed from its plaintext
-cache. This did not log out or restart Desktop.
+completed successfully (again as an instructed verification run on an indexed repo,
+proving OAuth injection and protocol transport rather than unprompted adoption).
+The earlier ordinary login's newly issued access/refresh credentials were also secured
+in Credential Manager and removed from its plaintext cache. This did not log out or restart Desktop.
 After clearing that cache, a second live Claude run on ash-rpg also passed using
-only the Credential Manager token. All 11 Python tests and six harness event checks
+only the Credential Manager token. All Python tests and harness event checks
 passed after the follow-up fixes.
 
 Antigravity's documented CLI retrieval route was tested against ORAC and ash-rpg.

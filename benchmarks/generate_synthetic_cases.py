@@ -9,7 +9,6 @@ import argparse
 import json
 import os
 import re
-import sys
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -34,7 +33,8 @@ def find_go_declarations(code_dir: str, max_files: int = 20) -> List[Dict[str, A
     for go_file in root.rglob("*.go"):
         # Skip vendor, git, and tests unless specified
         rel = go_file.relative_to(root).as_posix()
-        if any(p in rel for p in [".git", "vendor", "test", "_test.go"]):
+        parts = rel.lower().split("/")
+        if any(p in parts for p in [".git", "vendor", "test", "tests"]) or rel.endswith("_test.go"):
             continue
 
         try:

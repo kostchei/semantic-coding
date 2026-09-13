@@ -17,42 +17,52 @@ param (
     [switch]$SkipTune = $false
 )
 
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 Write-Host "============================================================================" -ForegroundColor Cyan
 Write-Host "       grepai Continuous Evaluation & Fine-Tuning Flywheel Runner           " -ForegroundColor Cyan
 Write-Host "============================================================================" -ForegroundColor Cyan
 
+$casesFile = "$PSScriptRoot\benchmarks\cases.json"
+
 # Phase 1: Synthetic Benchmark Expansion
 if (-not $SkipSynthetic) {
     Write-Host "`n[PHASE 1] Expanding Synthetic Benchmark Ground Truth..." -ForegroundColor Yellow
-    python "$PSScriptRoot\benchmarks\generate_synthetic_cases.py" `
+    $synthOut = "$PSScriptRoot\benchmarks\synthetic_cases.json"
+    & python "$PSScriptRoot\benchmarks\generate_synthetic_cases.py" `
         --code-dir $SourceDir `
         --max-files 10 `
-        --output-cases "$PSScriptRoot\benchmarks\synthetic_cases.json"
+        --output-cases $synthOut
+    if ($LASTEXITCODE -ne 0) { throw "Phase 1 failed with exit code $LASTEXITCODE" }
+    if (Test-Path $synthOut) {
+        $casesFile = $synthOut
+    }
 }
 
 # Phase 2: Hyperparameter Optimization
 if (-not $SkipTune) {
     Write-Host "`n[PHASE 2] Optimizing Hybrid Retrieval Hyperparameters (k, w_text, w_code)..." -ForegroundColor Yellow
-    python "$PSScriptRoot\benchmarks\tune_hyperparameters.py" `
-        --cases "$PSScriptRoot\benchmarks\cases.json" `
+    & python "$PSScriptRoot\benchmarks\tune_hyperparameters.py" `
+        --cases $casesFile `
         --text-dir $TextDir `
         --code-dir $CodeDir `
         --output "$PSScriptRoot\benchmarks\optimal_params.json"
+    if ($LASTEXITCODE -ne 0) { throw "Phase 2 failed with exit code $LASTEXITCODE" }
 }
 
 # Phase 3: Regression Benchmark
 Write-Host "`n[PHASE 3] Running 3-Way Comparative Regression Benchmark..." -ForegroundColor Yellow
-python "$PSScriptRoot\benchmarks\benchmark.py" `
-    --cases "$PSScriptRoot\benchmarks\cases.json" `
+& python "$PSScriptRoot\benchmarks\benchmark.py" `
+    --cases $casesFile `
     --text-dir $TextDir `
     --code-dir $CodeDir `
     --hybrid
+if ($LASTEXITCODE -ne 0) { throw "Phase 3 failed with exit code $LASTEXITCODE" }
 
 # Phase 4: Telemetry & Training Triplet Status
 Write-Host "`n[PHASE 4] Inspecting Telemetry & Training Triplets..." -ForegroundColor Yellow
-python "$PSScriptRoot\telemetry\collector.py" --status
+& python "$PSScriptRoot\telemetry\collector.py" --status
+if ($LASTEXITCODE -ne 0) { throw "Phase 4 failed with exit code $LASTEXITCODE" }
 
 Write-Host "`n============================================================================" -ForegroundColor Green
 Write-Host "                  Evaluation Flywheel Complete                              " -ForegroundColor Green

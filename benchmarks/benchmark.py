@@ -67,31 +67,34 @@ def run_grepai_search(
         proc = subprocess.run(
             cmd,
             cwd=target_dir,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             encoding="utf-8",
-            check=False
+            check=False,
+            timeout=60
         )
         latency_ms = (time.perf_counter() - start_time) * 1000.0
 
         if proc.returncode != 0:
-            sys.stderr.write(f"Search warning for query '{query}': {proc.stderr.strip()}\n")
-            return [], latency_ms
+            stderr_msg = proc.stderr.strip() if proc.stderr else ""
+            raise RuntimeError(
+                f"grepai search failed for query '{query}' in '{target_dir}' (exit {proc.returncode}): {stderr_msg}"
+            )
 
         raw_output = proc.stdout.strip()
         if not raw_output:
-            return [], latency_ms
+            raise RuntimeError(f"grepai returned empty output for query '{query}' in '{target_dir}'")
 
         parsed = json.loads(raw_output)
         if isinstance(parsed, list):
             return parsed, latency_ms
         elif isinstance(parsed, dict) and "results" in parsed:
             return parsed["results"], latency_ms
-        return [], latency_ms
+        raise RuntimeError(f"Unexpected output format from grepai for query '{query}': {type(parsed).__name__}")
 
-    except Exception as e:
-        sys.stderr.write(f"Error executing grepai search: {e}\n")
-        return [], 0.0
+    except (subprocess.TimeoutExpired, OSError, json.JSONDecodeError) as e:
+        raise RuntimeError(f"Error executing grepai search for query '{query}' in '{target_dir}': {e}") from e
 
 
 def evaluate_directory(

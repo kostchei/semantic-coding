@@ -2,7 +2,7 @@
 
 **Target Project:** `ORAC`
 **Query Used:** `tool broker privilege separation per-agent allowlist write grant isolation`
-**Retrieval Latency:** 305.9 ms
+**Retrieval Latency:** 201.6 ms
 **Description:** Verifies that reviewer and orchestrator agents hold zero write grants and that ToolBroker strictly enforces allowlists.
 
 ## Discovered Architectural & Security Seams
@@ -26,26 +26,27 @@ File: docs\tool-broker-plan-review.md
 3. 
 ```
 
-### Hit [2]: `.claude\worktrees\sad-gould-f315a4\docs\tool-broker-plan-review.md` (Lines 19-35)
+### Hit [2]: `docs\tool-broker-plan-review.md` (Lines 60-80)
 
-- **RRF Score:** 0.2857 (Text Rank: 2, Code Rank: 2)
+- **RRF Score:** 0.2500 (Text Rank: 3, Code Rank: 3)
 
 ```
-File: .claude\worktrees\sad-gould-f315a4\docs\tool-broker-plan-review.md
+File: docs\tool-broker-plan-review.md
 
-   The plan is a near-rewrite of the tool layer, not an extension — treat the broker as the
-   new foundation, not an add-on.
-
-2. **Tool selection is hardcoded, not agent-driven.** `agents.py::_apply_builtin_action`
-   dispatches by agent slug; the `tools: [...]` arrays in `agents.json` are prompt
-   decoration, not an enforced allow-list. Prerequisite for any broker: agents must emit
-   structured capability requests, and *every* tool call (including the 18 existing ones)
-   must route through the broker, or the 
+   UI calls the engine; the engine owns grants and the pending-approval queue.
+
+9. **Agent→capability mapping is half-right.** Optimiser→scheduling and Efficiency→grant-GC
+   are clean fits. Don't make Intent the permission broker — goal ambiguity ("what does
+   done mean?") is a different question from the permission ask ("may I post to #general?"),
+   which belongs to the Permission Engine + approval UI.
+
+10. **Omissions that will bite:** `storage.py` is a 48-line flat JSON board; grants, audit,
+    pending-approvals, and per-day rate counters are state
 ```
 
 ### Hit [3]: `tests\test_builder.py` (Lines 34-72)
 
-- **RRF Score:** 0.2167 (Text Rank: 4, Code Rank: 5)
+- **RRF Score:** 0.2143 (Text Rank: 2, Code Rank: None)
 
 ```
 File: tests\test_builder.py
@@ -69,37 +70,40 @@ def test_only_builder_holds_write_grants() -> None:
 def test_reviewer_write_is_denied_at_the_broker(tmp_path
 ```
 
-### Hit [4]: `.claude\worktrees\sad-gould-f315a4\docs\edge-check-council-design.md` (Lines 234-263)
+### Hit [4]: `docs\edge-check-council-design.md` (Lines 228-247)
 
-- **RRF Score:** 0.1875 (Text Rank: 3, Code Rank: None)
-
-```
-File: .claude\worktrees\sad-gould-f315a4\docs\edge-check-council-design.md
-
-This is not a convention to be followed faithfully; **it is the grant boundary the broker
-already enforces.** The Builder's allow-list contains the write capabilities; the council's and
-orchestrator's do not. A council agent that emitted `write_code` would be `denied` at the broker
-like any ungranted call — the same mechanism that denied Optimiser `handoff_tracker` before it
-was granted. Separation of privilege costs nothing extra; it is one row in the `grants` table
-per agent.
-
-The flow for any change, includin
-```
-
-### Hit [5]: `.claude\worktrees\sad-gould-f315a4\src\orac\broker.py` (Lines 32-58)
-
-- **RRF Score:** 0.1206 (Text Rank: 14, Code Rank: 7)
+- **RRF Score:** 0.1750 (Text Rank: 7, Code Rank: 5)
 
 ```
-File: .claude\worktrees\sad-gould-f315a4\src\orac\broker.py
+File: docs\edge-check-council-design.md
 
-    :class:`CapabilityRequest`, the broker decides allowed / denied / pending /
-    error, and only on ``allowed`` does it dispatch to a handler. Two backends
-    sit behind it: :class:`RegularToolExecutor` (in-memory journaling) and the
-    real adapters (e.g. ``fs_read``, the ``repo.*``/``git.*`` code tools).
-
-    Grants come either from the ``agents.json`` manifest (in-memory, used by
-    tests and the no-DB path) or from a :class:`BrokerStore`. When a store is
-    attached, every decision is written to the durable audit lo
+- A dedicated **Builder** subagent is the *sole* holder of mutating code grants
+  (`write_code`, `git_commit`, file writes). It does not plan, judge, or approve — it builds.
+- The **Orchestrator** plans and spawns; the **Council** (Intent/Optimise/Simple/Efficiency)
+  plans, documents, discusses, persuades, and **approves or rejects**. None of them hold a
+  write grant. They can shape *what* gets built and veto it — they cannot put hands on the code.
+
+This is not a convention to be followed faithfully; **it is the grant boundary the broker
+already enfor
+```
+
+### Hit [5]: `docs\tool-broker-plan-review.md` (Lines 75-93)
+
+- **RRF Score:** 0.1667 (Text Rank: 4, Code Rank: None)
+
+```
+File: docs\tool-broker-plan-review.md
+
+## Reordered build plan (checklist)
+
+Principle: make it real once, then make it general.
+
+- [ ] Define the agent-facing capability request + result contract
+      (`allowed | denied | pending | error`).
+- [ ] Make agents emit structured tool-call intents instead of hardcoded dispatch.
+- [ ] Build a minimal broker and migrate the 18 existing journaling tools through it
+      (zero external risk; validates the interface).
+- [ ] Move state to SQLite (grants, audit, pending-approvals, rate counters).
+- [ ] Add a durable `pending_approval` task state + timeout
 ```
 

@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)][ValidateSet('claude', 'codex')][string]$Agent,
     [Parameter(Mandatory = $true)][string]$ProjectPath,
     [Parameter(Mandatory = $true)][string]$Prompt,
+    [ValidateSet('Instructed', 'Unprompted')][string]$Mode = 'Instructed',
     [string]$OutputDir = "$PSScriptRoot\harness-results"
 )
 $ErrorActionPreference = 'Stop'
@@ -19,9 +20,11 @@ if ($Agent -eq 'claude') {
     $storedClaudeCredential = $LASTEXITCODE -eq 0
 }
 
-# Resolve the project before spending an agent turn. A typo must not search another repo.
-& $python -c 'import sys; sys.path.insert(0, sys.argv[1]); import hybrid_search; hybrid_search.resolve_project_dirs(project_path=sys.argv[2])' $PSScriptRoot $ProjectPath
-if ($LASTEXITCODE -ne 0) { throw 'Project lookup failed. Index the project with index_project.ps1 first.' }
+# In Instructed mode, verify project lookup before spending an agent turn.
+if ($Mode -eq 'Instructed') {
+    & $python -c 'import sys; sys.path.insert(0, sys.argv[1]); import hybrid_search; hybrid_search.resolve_project_dirs(project_path=sys.argv[2])' $PSScriptRoot $ProjectPath
+    if ($LASTEXITCODE -ne 0) { throw 'Project lookup failed. Index the project with index_project.ps1 first.' }
+}
 & $python -c 'import mcp.server.fastmcp'
 if ($LASTEXITCODE -ne 0) { throw 'Install the MCP dependency: python -m pip install -r requirements.txt' }
 
@@ -35,7 +38,8 @@ if ($Agent -eq 'claude' -and -not $storedClaudeCredential -and -not ($env:ANTHRO
     }
 }
 
-$request = @"
+if ($Mode -eq 'Instructed') {
+    $request = @"
 Perform read-only exploration of the project at $ProjectPath.
 Before exploratory shell searches, call the grepai_hybrid MCP tool search_codebase
 with project set to the absolute path above and a semantic query relevant to the request.
@@ -46,10 +50,14 @@ Do not edit files or delegate to other agents.
 Request:
 $Prompt
 "@
+} else {
+    # Unprompted mode: natural user prompt with no mention of grepai or search tools
+    $request = $Prompt
+}
 
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 $OutputDir = (Resolve-Path -LiteralPath $OutputDir).Path
-$runId = "$Agent-$([guid]::NewGuid().ToString('N'))"
+$runId = "$Agent-$Mode-$([guid]::NewGuid().ToString('N'))"
 $eventsPath = Join-Path $OutputDir "$runId.jsonl"
 $errorsPath = Join-Path $OutputDir "$runId.stderr.log"
 $mcpConfig = @{mcpServers = @{grepai_hybrid = @{command = $python; args = @($server)}}} | ConvertTo-Json -Depth 5 -Compress
@@ -60,18 +68,29 @@ try {
         # JSON string quoting is also valid for these TOML string/array values.
         $commandValue = ConvertTo-Json -InputObject $python -Compress
         $argsValue = ConvertTo-Json -InputObject @($server) -Compress
-        $request | & $cli exec --sandbox read-only --json `
-            -c "mcp_servers.grepai_hybrid.command=$commandValue" `
-            -c "mcp_servers.grepai_hybrid.args=$argsValue" `
-            -c 'mcp_servers.grepai_hybrid.enabled=true' `
-            -c 'mcp_servers.grepai_hybrid.tools.search_codebase.approval_mode="approve"' `
-            -c 'mcp_servers.grepai_hybrid.required=true' - 2> $errorsPath |
-            Set-Content -LiteralPath $eventsPath -Encoding utf8
+        $codexArgs = @(
+            "exec", "--sandbox", "read-only", "--json",
+            "-c", "mcp_servers.grepai_hybrid.command=$commandValue",
+            "-c", "mcp_servers.grepai_hybrid.args=$argsValue",
+            "-c", "mcp_servers.grepai_hybrid.enabled=true",
+            "-c", 'mcp_servers.grepai_hybrid.tools.search_codebase.approval_mode="approve"'
+        )
+        if ($Mode -eq 'Instructed') {
+            $codexArgs += @("-c", 'mcp_servers.grepai_hybrid.required=true')
+        }
+        $codexArgs += @("-")
+
+        $request | & $cli $codexArgs 2> $errorsPath | Set-Content -LiteralPath $eventsPath -Encoding utf8
     } else {
+        $claudeExtraArgs = @()
+        if ($Mode -eq 'Instructed') {
+            $claudeExtraArgs = @(
+                "--mcp-config", $mcpConfig, "--strict-mcp-config",
+                "--tools", "Read", "--allowedTools", "Read,mcp__grepai_hybrid__search_codebase"
+            )
+        }
         $request | & $python $credentialHelper run --cli $cli -- -p --output-format stream-json --verbose `
-            --mcp-config $mcpConfig --strict-mcp-config `
-            --tools Read --allowedTools 'Read,mcp__grepai_hybrid__search_codebase' `
-            --permission-mode dontAsk 2> $errorsPath |
+            @claudeExtraArgs --permission-mode dontAsk 2> $errorsPath |
             Set-Content -LiteralPath $eventsPath -Encoding utf8
     }
     $agentExit = $LASTEXITCODE
@@ -102,5 +121,9 @@ foreach ($line in (Get-Content -LiteralPath $eventsPath)) {
 Write-Host "Events: $eventsPath"
 Write-Host "Diagnostics: $errorsPath"
 if ($agentExit -ne 0 -or $agentFailed -or -not $completed) { throw "$Agent CLI failed or did not finish. Inspect the event and diagnostic files above for the specific error." }
-if (-not $usedHybrid) { throw 'Harness failed: no successful hybrid MCP usage was observed. Registration alone does not enforce tool selection.' }
-Write-Host 'Harness passed: hybrid MCP usage observed.'
+if (-not $usedHybrid -and $Mode -ne 'Unprompted') { throw 'Harness failed: no successful hybrid MCP usage was observed. Registration alone does not enforce tool selection.' }
+if ($usedHybrid) {
+    Write-Host "Harness passed: hybrid MCP usage observed."
+} else {
+    Write-Host "Unprompted harness completed: tool-first hybrid usage was not triggered."
+}
