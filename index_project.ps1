@@ -74,7 +74,7 @@ $Excludes = @(
     ".git", ".venv", "venv", "node_modules", "artifacts", ".tools",
     ".stack", "dist", "build", "Cache", "User", "bin", "out", ".bootstrap",
     "AssetProcessorTemp", "_savebackup", "__pycache__", ".pytest_cache", ".ruff_cache",
-    ".promptfoo", ".idea", ".vscode"
+    ".promptfoo", ".idea", ".vscode", ".orac", "site", "releases", "data"
 )
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
