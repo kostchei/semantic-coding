@@ -178,3 +178,67 @@ python training\train_cross_encoder.py --epochs 5 --lr 0.001 --margin 0.5
 * **Fork:** `https://github.com/kostchei/grepai.git` (upstream: `yoanbernabeu/grepai`)
 * **License:** MIT License (Copyright 2026 kostchei)
 * **Secret Protection:** Zero credentials or large vector gob files are committed; Windows Credential Store integration handles local token resolution securely.
+
+---
+
+## 7. Desktop AI Assistant Integration (Daily Drivers)
+
+The Two-Stage Hybrid Engine is exposed via standard Model Context Protocol (FastMCP) and native workspace skills across all three primary daily driver coding environments:
+
+### Architecture: Zero-Friction MCP Transport
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Desktop AI Daily Drivers                  │
+│   ┌────────────────┐  ┌──────────────┐  ┌───────────────┐   │
+│   │  Antigravity   │  │ Claude Code  │  │ Codex Desktop │   │
+│   └───────┬────────┘  └──────┬───────┘  └───────┬───────┘   │
+└───────────┼──────────────────┼──────────────────┼───────────┘
+            │                  │                  │
+            ▼                  ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│             FastMCP Stdio Server (mcp_server.py)            │
+│  - Tool: search_codebase(query, limit, rerank, feedback)    │
+│  - Auto-loads optimal RRF params (k=5, wt=1.5, wc=0.5)      │
+│  - Secure Windows Credential Store integration (Zero leaks) │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+┌───────────────────────────┐         ┌───────────────────────┐
+│ 137M Text Embedder (Port  │         │ 7B Code Embedder      │
+│ 1234, nomic-embed-text)   │         │ (Port 1234, 4096 dim) │
+└───────────────────────────┘         └───────────────────────┘
+```
+
+### 1. Claude Code
+- **Configuration File:** `~/.claude.json` (under `mcpServers`)
+- **Registration Command:**
+  ```powershell
+  claude mcp add --scope user grepai-hybrid -- python e:\Semantic_Coding\mcp_server.py
+  ```
+- **Verification:** Run `claude mcp list` -> reports `grepai-hybrid: python e:\Semantic_Coding\mcp_server.py - √ Connected`.
+- **Usage:** Claude Code automatically calls `search_codebase` when searching for code or algorithms, or when asked:
+  > `"Use grepai-hybrid to find how rate limiting and token bucket are implemented."`
+
+### 2. OpenAI Codex Desktop App
+- **Configuration File:** `C:\Users\Admin\.codex\config.toml`
+- **Configuration Entry:**
+  ```toml
+  [mcp_servers.grepai_hybrid]
+  command = "python"
+  args = ["e:\\Semantic_Coding\\mcp_server.py"]
+  ```
+- **Usage:** Codex invokes `grepai_hybrid.search_codebase` with full argument schema support.
+
+### 3. Antigravity IDE & Agent
+- **Native Skill:** `.gemini/skills/grepai-hybrid/SKILL.md` in repository root.
+- **Global MCP Server Definition:**
+  - `C:\Users\Admin\.gemini\antigravity\mcp\grepai-hybrid\search_codebase.json`
+  - `C:\Users\Admin\.gemini\antigravity\mcp\grepai-hybrid\instructions.md`
+  - `C:\Users\Admin\.gemini\antigravity-ide\mcp\grepai-hybrid\search_codebase.json`
+- **CLI Shell Wrapper:** `bin\grepai-hybrid.cmd` accessible directly from terminal.
+
+### 4. Zero Credential Leak Guarantee
+- All authentication with local embedding daemons (LM Studio) uses Windows Credential Manager (`PraetorSilica/LMStudioDev`) or local environment variables resolved dynamically in memory at runtime.
+- No bearer tokens, passwords, or private keys are written to configuration files or git-tracked trees.
+

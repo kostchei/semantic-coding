@@ -218,4 +218,27 @@ python training\train_cross_encoder.py --epochs 5
 .\run_evaluation_pipeline.ps1
 ```
 
+---
+
+## 9. Desktop AI Assistant Integration (Daily Drivers)
+
+The hybrid retrieval engine is exposed as a standard Model Context Protocol (FastMCP) server via `mcp_server.py`, seamlessly integrating with daily driver coding environments:
+
+### Claude Code
+```powershell
+claude mcp add --scope user grepai-hybrid -- python e:\Semantic_Coding\mcp_server.py
+```
+
+### OpenAI Codex Desktop App
+In `~/.codex/config.toml`:
+```toml
+[mcp_servers.grepai_hybrid]
+command = "python"
+args = ["e:\\Semantic_Coding\\mcp_server.py"]
+```
+
+### Antigravity IDE & Agent
+Equipped natively with `.gemini/skills/grepai-hybrid/SKILL.md` and MCP server tool definitions in `~/.gemini/antigravity/mcp/grepai-hybrid/`.
+
+
 

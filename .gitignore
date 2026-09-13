@@ -1,6 +1,11 @@
-# Executables and large binary tools
-bin/
+# Binary tools directory - only track the wrapper script
+bin/*
+!bin/grepai-hybrid.cmd
 *.exe
+
+# grepai metadata directories (may contain local config tokens)
+.grepai/
+**/.grepai/
 
 # Upstream testbed repository (cloned dynamically during setup/run)
 grepai/
