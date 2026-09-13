@@ -260,15 +260,39 @@ def main():
     parser.add_argument("--code-dir", type=str, default="repo-code", help="Directory indexed with 7B code model")
     parser.add_argument("--limit", "-n", type=int, default=5, help="Number of results to return (default: 5)")
     parser.add_argument("--json", "-j", action="store_true", help="Output results in JSON format")
-    parser.add_argument("--k", type=int, default=15, help="RRF smoothing constant (default: 15)")
+    parser.add_argument("--k", type=int, help="RRF smoothing constant (auto-loads from optimal_params.json if omitted)")
+    parser.add_argument("--w-text", type=float, help="Text model weight (auto-loads from optimal_params.json if omitted)")
+    parser.add_argument("--w-code", type=float, help="Code model weight (auto-loads from optimal_params.json if omitted)")
     parser.add_argument("--rerank", action="store_true", help="Enable Stage 2 local LLM re-ranking")
     parser.add_argument("--rerank-model", type=str, help="Model name for re-ranking in LM Studio")
     parser.add_argument("--endpoint", type=str, default="http://127.0.0.1:1234/v1", help="LM Studio API endpoint")
     parser.add_argument("--token", type=str, help="API token for LM Studio (auto-resolves from Windows Credential Store if omitted)")
+    parser.add_argument("--feedback-selected", type=str, help="Mark a file as the positive selection to capture a training triplet")
+    parser.add_argument("--no-telemetry", action="store_true", help="Disable interaction telemetry logging")
     args = parser.parse_args()
 
     bin_path = find_binary()
     token = args.token or get_stored_credential("PraetorSilica/LMStudioDev")
+
+    # Auto-load optimal hyperparameters if available
+    k_val = args.k
+    w_text = args.w_text
+    w_code = args.w_code
+
+    optimal_file = Path(__file__).resolve().parent / "benchmarks" / "optimal_params.json"
+    if optimal_file.is_file():
+        try:
+            with open(optimal_file, "r", encoding="utf-8") as f:
+                opt = json.load(f)
+                if k_val is None: k_val = opt.get("k", 15)
+                if w_text is None: w_text = opt.get("weight_text", 1.0)
+                if w_code is None: w_code = opt.get("weight_code", 1.1)
+        except Exception:
+            pass
+
+    if k_val is None: k_val = 15
+    if w_text is None: w_text = 1.0
+    if w_code is None: w_code = 1.1
 
     # Stage 1: Dual Dense Parallel Retrieval
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -277,7 +301,7 @@ def main():
         text_res = f_text.result()
         code_res = f_code.result()
 
-    fused = reciprocal_rank_fusion(text_res, code_res, k=args.k, limit=10)
+    fused = reciprocal_rank_fusion(text_res, code_res, k=k_val, weight_text=w_text, weight_code=w_code, limit=10)
 
     # Stage 2: Optional Local Re-ranking
     if args.rerank:
@@ -290,13 +314,26 @@ def main():
             timeout=20
         )
 
+    # Telemetry logging & triplet collection
+    if not args.no_telemetry:
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from telemetry.collector import log_interaction
+            log_interaction(
+                query=args.query,
+                candidates=fused,
+                selected_file=args.feedback_selected
+            )
+        except Exception:
+            pass
+
     fused = fused[:args.limit]
 
     if args.json:
         print(json.dumps(fused, indent=2))
         return
 
-    mode_label = "Hybrid RRF + Local Re-Rank" if args.rerank else "Hybrid RRF (Text + Code)"
+    mode_label = "Hybrid RRF + Local Re-Rank" if args.rerank else f"Hybrid RRF (k={k_val}, wt={w_text:.1f}, wc={w_code:.1f})"
     print(f"\n{mode_label} Results for: \"{args.query}\"\n" + "=" * 75)
     for idx, item in enumerate(fused, 1):
         fp = item["file_path"]

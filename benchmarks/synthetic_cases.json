@@ -1,0 +1,93 @@
+[
+  {
+    "id": "synth_001",
+    "category": "Structural / Syntax",
+    "query": "implementation of set version definition",
+    "expected_file": "cli/root.go",
+    "description": "Generated for function SetVersion in cli/root.go"
+  },
+  {
+    "id": "synth_002",
+    "category": "Structural / Syntax",
+    "query": "implementation of execute definition",
+    "expected_file": "cli/root.go",
+    "description": "Generated for function Execute in cli/root.go"
+  },
+  {
+    "id": "synth_003",
+    "category": "Pure Semantic Intent",
+    "query": "this component returns the root command for documentation generation",
+    "expected_file": "cli/root.go",
+    "description": "Generated for function GetRootCmd in cli/root.go"
+  },
+  {
+    "id": "synth_004",
+    "category": "Structural / Syntax",
+    "query": "implementation of get root cmd definition",
+    "expected_file": "cli/root.go",
+    "description": "Generated for function GetRootCmd in cli/root.go"
+  },
+  {
+    "id": "synth_005",
+    "category": "Pure Semantic Intent",
+    "query": "this component returns results in json format for ai agents",
+    "expected_file": "cli/search.go",
+    "description": "Generated for function SearchJSON in cli/search.go"
+  },
+  {
+    "id": "synth_006",
+    "category": "Structural / Syntax",
+    "query": "implementation of search json definition",
+    "expected_file": "cli/search.go",
+    "description": "Generated for function SearchJSON in cli/search.go"
+  },
+  {
+    "id": "synth_007",
+    "category": "Pure Semantic Intent",
+    "query": "this component is a lightweight struct for json output (excludes vector, hash, updated_at)",
+    "expected_file": "cli/search.go",
+    "description": "Generated for struct SearchResultJSON in cli/search.go"
+  },
+  {
+    "id": "synth_008",
+    "category": "Structural / Syntax",
+    "query": "implementation of search result json definition",
+    "expected_file": "cli/search.go",
+    "description": "Generated for struct SearchResultJSON in cli/search.go"
+  },
+  {
+    "id": "synth_009",
+    "category": "Pure Semantic Intent",
+    "query": "this component is a minimal struct for compact json output (no content field)",
+    "expected_file": "cli/search.go",
+    "description": "Generated for struct SearchResultCompactJSON in cli/search.go"
+  },
+  {
+    "id": "synth_010",
+    "category": "Structural / Syntax",
+    "query": "implementation of search result compact json definition",
+    "expected_file": "cli/search.go",
+    "description": "Generated for struct SearchResultCompactJSON in cli/search.go"
+  },
+  {
+    "id": "synth_011",
+    "category": "Structural / Syntax",
+    "query": "implementation of init definition",
+    "expected_file": "cli/status.go",
+    "description": "Generated for function Init in cli/status.go"
+  },
+  {
+    "id": "synth_012",
+    "category": "Structural / Syntax",
+    "query": "implementation of update definition",
+    "expected_file": "cli/status.go",
+    "description": "Generated for function Update in cli/status.go"
+  },
+  {
+    "id": "synth_013",
+    "category": "Structural / Syntax",
+    "query": "implementation of view definition",
+    "expected_file": "cli/status.go",
+    "description": "Generated for function View in cli/status.go"
+  }
+]

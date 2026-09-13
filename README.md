@@ -170,3 +170,49 @@ Distractor Separation        |            50% |            50% | Tie
 ================================================================================---------
 ```
 
+---
+
+## 8. Continuous Evaluation, Tuning & Training Flywheel
+
+To maintain and improve retrieval precision as codebases evolve, this repository includes an end-to-end self-improving flywheel:
+
+### 1. Hybrid Search with Stage 2 Re-Ranking
+```powershell
+# Interactive CLI search using optimal hyperparameters (k=5, wt=1.5, wc=0.5)
+python hybrid_search.py "throttle client queries to stay within quota limits" -n 3
+
+# With Stage 2 local LLM cross-encoder re-ranking
+python hybrid_search.py "parse abstract syntax trees" --rerank -n 3
+```
+
+### 2. Automated Hyperparameter Tuning
+```powershell
+# Runs grid search across RRF smoothing constants (k) and skew weights (w_text, w_code)
+python benchmarks\tune_hyperparameters.py --cases benchmarks\cases.json --text-dir repo-text --code-dir repo-code
+```
+
+### 3. Synthetic Benchmark Expansion via AST Inversion
+```powershell
+# Scans codebase and generates new multi-category ground truth cases
+python benchmarks\generate_synthetic_cases.py --code-dir grepai --max-files 20
+```
+
+### 4. Telemetry & Hard-Negative Mining
+```powershell
+# Inspect captured agent interactions and mined contrastive triplets
+python telemetry\collector.py --status
+```
+
+### 5. Contrastive Cross-Encoder Training
+```powershell
+# Train neural ranking model with Margin Ranking Loss on mined triplets
+python training\train_cross_encoder.py --epochs 5
+```
+
+### 6. Full Pipeline Runner
+```powershell
+# Run the entire continuous evaluation flywheel in one command
+.\run_evaluation_pipeline.ps1
+```
+
+

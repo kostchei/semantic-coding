@@ -21,6 +21,14 @@ venv/
 *token*
 *secret*
 
+# Training checkpoints and weights
+training/checkpoints/
+*.pt
+
+# Telemetry raw logs
+telemetry/interactions.jsonl
+
 # OS artifacts
 Thumbs.db
 .DS_Store
+
